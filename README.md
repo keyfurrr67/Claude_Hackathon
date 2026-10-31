@@ -113,4 +113,5 @@ of rows. The recall gap to test is 6 of 304 misses against 5 of 91, a small samp
 - `tune.py`: 0.05-step settings search, train only
 - `build_dashboard.py`, `dashboard_template.html`: dashboard
 - `models/`: trained CatBoost models, calibrators and thresholds
+- `vendor/three.min.js`: three.js r128 (MIT), bundled into the dashboard so it works offline
 - `outputs/`: predictions, metrics, failure cases, dashboard

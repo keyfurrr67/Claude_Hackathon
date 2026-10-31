@@ -19,13 +19,52 @@ ACTIONS = {
     "Safe": "No action proposed.",
 }
 WINDOW_DAYS = range(2, 7)
+TRIGGERS = {
+    "rule: miss < 1 km": "Predicted to pass within 1 km",
+    "rule: miss 1-5 km": "Predicted to pass within 1 to 5 km",
+    "model: Pc >= 1e-4 likely": "Model expects a collision probability of at least 1 in 10,000",
+    "model: Pc >= 1e-6 likely": "Model expects a collision probability of at least 1 in 1 million",
+    "clear: miss > 5 km and Pc < 1e-6 likely": "Passes beyond 5 km and the model expects a collision probability below 1 in 1 million",
+}
+REVIEW_REASONS = {
+    "": "",
+    "no usable covariance": "the tracking uncertainty for this message is missing",
+    "upper-bound Pc above Critical line": "the worst-case estimate is above the Critical line but the model disagrees",
+    "near Critical threshold": "the model is close to the Critical cut-off",
+    "near Elevated threshold": "the model is close to the Elevated cut-off",
+}
+FEATURE_LABELS = {
+    "time_to_tca": "time to closest approach", "relative_position_r": "vertical separation",
+    "relative_position_t": "separation along the orbit", "relative_position_n": "separation across the orbit",
+    "max_risk_estimate": "worst-case estimate", "F10": "solar activity", "AP": "geomagnetic activity",
+    "c_object_type": "object type", "c_sigma_placeholder": "missing object tracking data",
+    "t_sigma_placeholder": "missing satellite tracking data", "log_miss": "miss distance",
+    "log_speed": "relative speed", "log_c_sigma_r": "object position uncertainty",
+    "log_t_sigma_r": "satellite position uncertainty", "log_radial_sigma": "combined position uncertainty",
+    "abs_r": "vertical separation", "abs_t": "separation along the orbit",
+    "abs_n": "separation across the orbit", "radial_sigmas_away": "vertical gap versus uncertainty",
+    "miss_sigmas_away": "miss distance versus uncertainty", "log_gaussian_decay": "gap-based probability signal",
+    "speed_x_sigma": "speed and uncertainty together", "msg_index": "number of earlier messages",
+    "delta_log_miss": "change in miss distance", "delta_max_risk": "change in worst-case estimate",
+    "delta_log_sigma": "change in object uncertainty", "delta_time": "time since last message",
+    "min_miss_so_far": "closest prediction so far", "max_risk_so_far": "highest worst-case estimate so far",
+    "first_log_miss_gap": "change in miss distance since first message",
+}
+
+
+def plain_drivers(text):
+    drivers = []
+    for item in text.split("; "):
+        feature, sign = item.rsplit(" ", 1)
+        drivers.append(f"{FEATURE_LABELS[feature]} ({'raises' if sign == '+' else 'lowers'} risk)")
+    return ", ".join(drivers)
 
 
 def load():
     predictions = pd.read_csv(OUT / "test_predictions.csv", keep_default_na=False)
     raw = pd.read_csv(ROOT / "test_data.csv", usecols=[
         "relative_position_r", "relative_position_t", "relative_position_n", "relative_speed",
-        "relative_velocity_t", "relative_velocity_n", "c_object_type",
+        "relative_velocity_r", "relative_velocity_t", "relative_velocity_n", "c_object_type",
     ])
     return pd.concat([predictions, raw], axis=1), json.loads((OUT / "metrics.json").read_text())
 
@@ -42,10 +81,10 @@ def build_events(d):
             "p_elevated", "p_critical", "tier_index",
         ]].round(4).values.tolist()
         events.append({
-            "id": int(event_id), "type": last.c_object_type, "msgs": msgs, "review": last.review_reason,
-            "trigger": last.trigger, "drivers": last.top_drivers, "row": int(last.source_line),
+            "id": int(event_id), "type": last.c_object_type, "msgs": msgs, "review": REVIEW_REASONS[last.review_reason],
+            "trigger": TRIGGERS[last.trigger], "drivers": plain_drivers(last.top_drivers), "row": int(last.source_line),
             "speed": float(last.relative_speed), "action": ACTIONS[last.predicted_tier],
-            "velocity": [float(last.relative_velocity_t), float(last.relative_velocity_n)],
+            "velocity": [float(last.relative_velocity_r), float(last.relative_velocity_t), float(last.relative_velocity_n)],
         })
     events.sort(key=lambda e: (-e["msgs"][-1][11], not e["review"], -e["msgs"][-1][10], e["msgs"][-1][1]))
     return events
@@ -75,14 +114,14 @@ def build_insights(d, latest, windows, metrics):
     ).query("events >= 30").sort_values("share", ascending=False)
     return [
         f"{len(critical)} of {len(latest):,} events are Critical on their latest message. "
-        f"{by_model} of those are flagged by the Pc model at a miss distance of 1 km or more, "
+        f"{by_model} of those are flagged by the model alone, at a miss distance of 1 km or more, "
         "which a distance-only screen would pass.",
-        f"The busiest window is {peak['label']} before TCA, with {peak['within_1km']} events inside 1 km.",
+        f"The busiest window is {peak['label']} before closest approach, with {peak['within_1km']} events inside 1 km.",
         f"{cleared} events were Critical on an earlier message but are not on their latest one, "
         "so tiers move between updates.",
-        f"{types.index[0]} objects have the highest Critical share at {types.share.iloc[0]:.1%} "
+        f"{types.index[0].capitalize()} has the highest Critical share at {types.share.iloc[0]:.1%} "
         f"of {int(types.events.iloc[0]):,} events.",
-        f"On train, {drift['ended_critical_not_critical_at_2d']} of {drift['ended_critical']} events "
+        f"In the training data, {drift['ended_critical_not_critical_at_2d']} of {drift['ended_critical']} events "
         "that ended Critical were not Critical at the 2-day mark. A Safe or Elevated tier here is "
         "not a promise about the final message.",
     ]
@@ -95,7 +134,7 @@ def scorecard(test):
                 "false_critical": m["false_critical"], "over": f"{over:,}"}
     return [
         row("This model", test["model"]),
-        row("max_risk_estimate + rules", test["baseline_max_risk_estimate"]),
+        row("Worst-case estimate with distance rules", test["baseline_max_risk_estimate"]),
         row("Miss distance only", test["baseline_miss_distance_only"]),
     ]
 
@@ -106,15 +145,14 @@ def limits(metrics):
         f"Most Critical rows are settled by the 1 km rule. Where the model must decide alone "
         f"({md['pc_critical_rows_miss_ge_1km']} rows), it catches {md['critical_recall']:.1%} and "
         f"{1 - md['critical_precision']:.0%} of its model-only Critical flags are false.",
-        "max_risk_estimate missed no Critical rows, because it is an upper bound. The model trades "
-        "a few misses for far fewer false alarms, which is the decision to challenge.",
-        f"Pc values are rough: the error is {test['log10_pc']['mae_operational_range']:.1f} orders of "
-        "magnitude on rows with log10 Pc of -8 or above. Rely on tiers and probabilities, not on "
-        "the point estimate.",
-        "Rows with an Earth-radius placeholder sigma have no usable covariance and their risk "
-        "labels look like artefacts, so they always go to review.",
-        "The review flag for max_risk_estimate above the Critical line was added after seeing the "
-        "test failures. Tier scores are unaffected, but its catch rate on test is not a clean holdout.",
+        "The worst-case estimate missed no Critical rows, because it nearly always overstates the risk. "
+        "The model accepts a few misses for far fewer false alarms, and every miss on test went to review.",
+        f"The collision probability shown is rough. It is typically off by a factor of about "
+        f"{round(10 ** test['log10_pc']['mae_operational_range'], -1):.0f} on the rows that matter, so rely on the tier and not the exact figure.",
+        "Some messages have a placeholder instead of real tracking uncertainty. Their probabilities "
+        "look unreliable, so they always go to review.",
+        "The review rule for a high worst-case estimate was added after seeing the test failures. "
+        "It changes no tiers, but its perfect catch rate on test is not independent proof.",
     ]
 
 
@@ -123,7 +161,7 @@ def failures():
     f = f[f.failure == "missed Critical"]
     return [{
         "id": int(r.event_id), "days": f"{r.time_to_tca:.2f}", "miss": f"{r.miss_distance / 1000:.2f}",
-        "risk": f"{r.risk:.2f}", "p": f"{r.p_critical:.1%}", "review": r.review_reason,
+        "risk": float(r.risk), "p": f"{r.p_critical:.1%}", "review": REVIEW_REASONS[r.review_reason],
     } for r in f.itertuples()]
 
 
@@ -133,8 +171,8 @@ def main():
     windows = build_windows(d)
     counts = latest.predicted_tier.value_counts()
     data = {
-        "scope": f"Test set: {len(d):,} messages across {len(latest):,} events, 2 to 7 days before TCA. "
-                 "It holds nothing inside 2 days of TCA.",
+        "scope": f"Test data: {len(d):,} warning messages across {len(latest):,} close approaches, 2 to 7 days out. "
+                 "It has no messages from the final 2 days.",
         "tiles": [
             {"label": "Events", "value": len(latest)},
             *[{"tier": t, "value": int(counts.get(t, 0))} for t in reversed(TIERS)],
@@ -149,7 +187,8 @@ def main():
     }
     payload = json.dumps(data, separators=(",", ":"), default=float).replace("</", "<\\/")
     template = (ROOT / "dashboard_template.html").read_text()
-    (OUT / "dashboard.html").write_text(template.replace("/*DATA*/", payload))
+    three = (ROOT / "vendor" / "three.min.js").read_text()
+    (OUT / "dashboard.html").write_text(template.replace("/*THREE*/", three).replace("/*DATA*/", payload))
     print(json.dumps({k: data[k] for k in ("scope", "tiles", "windows", "insights", "scorecard", "limits", "failures")}, indent=1))
 
 

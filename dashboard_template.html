@@ -4,145 +4,256 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Conjunction Risk Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
+/* Layout: a navy console band holds the triage count, the queue and encounter scope sit side by side
+   as the working desk, and the evidence for trusting it follows below. */
 :root {
   color-scheme: light;
-  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #6f6d68;
-  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,.10); --wash: rgba(42,120,214,.10);
-  --series: #2a78d6; --band: rgba(42,120,214,.16);
+  --bg: #eef1f6; --panel: #fbfcfe; --panel-2: #f2f5fa; --scope: #f5f8fc;
+  --ink: #0e1726; --ink-2: #44506a; --muted: #626d85;
+  --line: #dde3ec; --axis: #b4bfd0;
+  --accent: #2a78d6; --accent-soft: #bcd6f5; --wash: rgba(42, 120, 214, .10); --interval: rgba(42, 120, 214, .16);
+  --console: #0f1b30; --console-2: #1a2a45; --console-ink: #f2f6fc; --console-muted: #a9b8cf;
   --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
+  --tint-critical: rgba(208, 59, 59, .09); --tint-elevated: rgba(250, 178, 25, .13); --tint-safe: rgba(12, 163, 12, .08);
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme="light"])) {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #a3a198;
-    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,.10); --wash: rgba(57,135,229,.16);
-    --series: #3987e5; --band: rgba(57,135,229,.22);
+    --bg: #0a0f19; --panel: #121a28; --panel-2: #0e1521; --scope: #0c1320;
+    --ink: #eef2f8; --ink-2: #b9c4d6; --muted: #8e9ab0;
+    --line: #232e41; --axis: #36455f;
+    --accent: #5aa2f0; --accent-soft: #24446e; --wash: rgba(90, 162, 240, .14); --interval: rgba(90, 162, 240, .22);
+    --console: #101a2c; --console-2: #1d2c47;
+    --tint-critical: rgba(208, 59, 59, .17); --tint-elevated: rgba(250, 178, 25, .12); --tint-safe: rgba(12, 163, 12, .13);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #a3a198;
-  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,.10); --wash: rgba(57,135,229,.16);
-  --series: #3987e5; --band: rgba(57,135,229,.22);
+  --bg: #0a0f19; --panel: #121a28; --panel-2: #0e1521; --scope: #0c1320;
+  --ink: #eef2f8; --ink-2: #b9c4d6; --muted: #8e9ab0;
+  --line: #232e41; --axis: #36455f;
+  --accent: #5aa2f0; --accent-soft: #24446e; --wash: rgba(90, 162, 240, .14); --interval: rgba(90, 162, 240, .22);
+  --console: #101a2c; --console-2: #1d2c47;
+  --tint-critical: rgba(208, 59, 59, .17); --tint-elevated: rgba(250, 178, 25, .12); --tint-safe: rgba(12, 163, 12, .13);
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-main { max-width: 1320px; margin: 0 auto; padding: 24px 16px 56px; }
-h1 { font-size: 22px; margin: 0; line-height: 1.25; }
-h2 { font-size: 15px; margin: 0 0 4px; }
-h3 { font-size: 13px; margin: 0 0 2px; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 15px/1.5 var(--font-body); }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; margin: 0; text-wrap: balance; }
+h2 { font-size: 20px; line-height: 1.2; }
+h3 { font-size: 16px; line-height: 1.25; }
 p { margin: 0; }
-.sub { color: var(--ink-2); }
-.note { color: var(--muted); font-size: 12px; }
-.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 16px; min-width: 0; }
-.tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 16px 0; }
-.tile .value { font-size: 30px; font-weight: 600; line-height: 1.2; }
-.tile .label { color: var(--ink-2); font-size: 13px; }
-.row2 { display: grid; grid-template-columns: 2fr 3fr; gap: 12px; margin-bottom: 12px; }
-.desk { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 12px; align-items: start; margin-bottom: 12px; }
-.bar-row { display: grid; grid-template-columns: 74px 1fr 44px 44px; gap: 8px; align-items: center; font-size: 13px; padding: 3px 0; }
-.bar-row.head { color: var(--muted); font-size: 12px; }
-.bar-track { height: 12px; }
-.bar { height: 12px; background: var(--series); border-radius: 0 4px 4px 0; min-width: 2px; }
-.num { text-align: right; font-variant-numeric: tabular-nums; }
-ul { margin: 8px 0 0; padding-left: 18px; }
-li { margin-bottom: 6px; }
-.filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
-select, input, button { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--axis); border-radius: 6px; padding: 4px 8px; }
-input { width: 110px; }
-.queue { max-height: 640px; overflow: auto; border-top: 1px solid var(--grid); }
-table { border-collapse: collapse; width: 100%; font-size: 13px; }
-th { position: sticky; top: 0; background: var(--surface); color: var(--muted); font-weight: 500; text-align: left; padding: 6px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
-td { padding: 6px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
-th.num { text-align: right; }
+.wrap { max-width: 1440px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.note { color: var(--muted); font-size: 13px; line-height: 1.45; }
+button:focus-visible, select:focus-visible, input:focus-visible, tr:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.console { background: var(--console); color: var(--console-ink); }
+.console .wrap { padding-block: 22px 24px; display: grid; gap: 18px; }
+.masthead { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.eyebrow { font: 500 12px/1.4 var(--font-data); letter-spacing: .08em; text-transform: uppercase; color: var(--console-muted); }
+h1 { font-size: 34px; line-height: 1.1; letter-spacing: .01em; margin-top: 2px; }
+.lede { color: var(--console-muted); max-width: 68ch; margin-top: 4px; }
+.theme { flex: none; color: var(--console-ink); background: var(--console-2); border: 1px solid transparent; border-radius: 6px; padding: 5px 12px; font: 500 13px var(--font-body); cursor: pointer; }
+.theme:hover { border-color: var(--console-muted); }
+.counts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; }
+.count .value { font: 500 40px/1.1 var(--font-display); }
+.count .label { display: flex; align-items: center; color: var(--console-muted); font-size: 14px; min-height: 22px; }
+.mix { display: flex; gap: 2px; height: 10px; }
+.mix span { min-width: 3px; border-radius: 2px; }
+
+.page { display: grid; gap: 16px; padding-block: 16px 56px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px; min-width: 0; }
+.desk { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.pair { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 16px; }
+.pair.even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+select, input { font: 400 14px var(--font-body); color: var(--ink); background: var(--panel-2); border: 1px solid var(--axis); border-radius: 6px; padding: 5px 8px; min-width: 0; }
+input { width: 96px; }
+input::placeholder { color: var(--muted); }
+.count-line { margin: 10px 0 6px; }
+.queue { max-height: 900px; overflow: auto; border-top: 1px solid var(--line); margin-inline: -18px; margin-bottom: -18px; border-radius: 0 0 8px 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th { position: sticky; top: 0; z-index: 1; background: var(--panel); color: var(--muted); font: 500 12px var(--font-body); text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 8px 10px; border-bottom: 1px solid var(--line); }
+th.num, td.num { text-align: right; }
+td.num, .mono { font-family: var(--font-data); font-size: 13px; font-variant-numeric: tabular-nums; }
 .queue tbody tr { cursor: pointer; }
-.queue tbody tr:hover, .queue tbody tr:focus { background: var(--wash); outline: none; }
-.queue tbody tr.selected { background: var(--wash); box-shadow: inset 3px 0 0 var(--series); }
-.tier { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; font-weight: 500; }
+.queue tbody tr:hover { background: var(--wash); }
+.queue tbody tr.selected { background: var(--wash); }
+.queue td:first-child { padding-left: 16px; }
+.queue th:first-child { padding-left: 16px; }
+.queue tr[data-tier="Critical"] td:first-child { box-shadow: inset 4px 0 0 var(--critical); }
+.queue tr[data-tier="Elevated"] td:first-child { box-shadow: inset 4px 0 0 var(--warning); }
+.queue tr[data-tier="Safe"] td:first-child { box-shadow: inset 4px 0 0 var(--good); }
+.event-id { font: 500 14px var(--font-data); }
+.object { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.tier { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-weight: 500; }
 .tier svg { width: 12px; height: 12px; flex: none; }
-.big-tier { font-size: 18px; }
-.facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 16px; margin: 12px 0; }
-.facts .k { color: var(--muted); font-size: 12px; }
-.facts .v { font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.action { border-left: 3px solid var(--axis); padding: 6px 10px; margin: 10px 0; }
-.action.critical { border-left-color: var(--critical); }
-.charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
-.chart { position: relative; }
-.chart svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+.chip { display: inline-block; font-size: 11px; font-weight: 500; line-height: 1.5; color: var(--ink-2); border: 1px solid var(--axis); border-radius: 4px; padding: 0 5px; margin-top: 2px; }
+
+.detail { display: grid; gap: 16px; }
+.detail-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px 16px; }
+.detail-head h2 { font-size: 26px; }
+.detail-head .tier { font-size: 18px; font-family: var(--font-display); font-weight: 600; }
+.detail-head .tier svg { width: 15px; height: 15px; }
+.action { border-radius: 6px; padding: 10px 14px; background: var(--panel-2); }
+.action.Critical { background: var(--tint-critical); }
+.action.Elevated { background: var(--tint-elevated); }
+.action.Safe { background: var(--tint-safe); }
+.action strong { font-weight: 600; font-size: 16px; }
+.action .why { color: var(--ink-2); font-size: 14px; }
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.fact .k { color: var(--muted); font-size: 12px; }
+.fact .v { font: 500 14px var(--font-data); font-variant-numeric: tabular-nums; }
+.probs { display: grid; gap: 6px; }
+.prob-bar { display: flex; gap: 2px; height: 12px; }
+.prob-bar span { border-radius: 2px; }
+.prob-labels { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 13px; color: var(--ink-2); }
+.prob-labels b { font: 500 13px var(--font-data); color: var(--ink); }
+.charts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.chart { min-width: 0; display: grid; gap: 2px; align-content: start; }
 .chart-wide { grid-column: 1 / -1; }
-.tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--surface); font-size: 12px; padding: 4px 8px; border-radius: 6px; white-space: nowrap; display: none; z-index: 2; }
-details { margin-top: 12px; }
-summary { cursor: pointer; color: var(--ink-2); }
-.scroll { overflow-x: auto; }
+.plot { position: relative; margin-top: 6px; }
+.plot svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+.plot text { font-family: var(--font-data); }
+.chart-wide .plot svg { border-radius: 6px; background: var(--scope); }
+.space { position: relative; overflow: hidden; border-radius: 6px; background: var(--console); cursor: grab; }
+.space:active { cursor: grabbing; }
+.space canvas { display: block; touch-action: pan-y; outline-offset: -2px; }
+.space-label { position: absolute; left: 0; top: 0; pointer-events: none; color: var(--console-ink); font: 400 11px var(--font-data); white-space: nowrap; text-shadow: 0 0 3px var(--console); }
+.space-label.axis { color: var(--console-muted); }
+.tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--panel); font: 400 12px var(--font-data); padding: 4px 8px; border-radius: 4px; white-space: nowrap; z-index: 2; }
+details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
+.scroll { overflow-x: auto; margin-top: 8px; }
 .scroll table { min-width: 460px; }
-.eval { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; }
+.failure td:last-child { min-width: 190px; }
+
+.windows { display: grid; gap: 8px; margin-top: 12px; }
+.window { display: grid; grid-template-columns: 74px minmax(0, 1fr) 48px 48px; gap: 10px; align-items: center; font-size: 14px; }
+.window.head { color: var(--muted); font-size: 12px; }
+.track { position: relative; height: 16px; }
+.track span { position: absolute; inset: 0 auto 0 0; border-radius: 0 4px 4px 0; }
+.track .wide { background: var(--accent-soft); }
+.track .near { background: var(--accent); box-shadow: 2px 0 0 var(--panel); }
+.window .num { text-align: right; font-family: var(--font-data); font-size: 13px; }
+.key { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--ink-2); margin-top: 10px; }
+.key span { display: inline-flex; align-items: center; gap: 6px; }
+.key i { width: 12px; height: 12px; border-radius: 2px; }
+ul { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.list li { padding-left: 14px; border-left: 2px solid var(--axis); max-width: 80ch; }
+.board tbody tr:first-child td { font-weight: 600; background: var(--wash); }
+.glossary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 24px; margin: 12px 0 0; }
+.glossary dt { font-weight: 600; }
+.glossary dd { margin: 0; color: var(--ink-2); font-size: 14px; }
 .failure { cursor: pointer; }
 .failure:hover { background: var(--wash); }
-.linkish { color: var(--series); text-decoration: underline; cursor: pointer; background: none; border: 0; padding: 0; }
-@media (max-width: 960px) {
-  .tiles { grid-template-columns: repeat(2, 1fr); }
-  .row2, .desk, .eval, .charts { grid-template-columns: minmax(0, 1fr); }
-  .facts { grid-template-columns: repeat(2, 1fr); }
-  .queue { max-height: 380px; }
+
+@media (max-width: 1060px) {
+  .desk, .pair, .pair.even { grid-template-columns: minmax(0, 1fr); }
+  .glossary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .queue { max-height: 420px; }
+}
+@media (max-width: 640px) {
+  h1 { font-size: 28px; }
+  .counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .count:first-child { grid-column: 1 / -1; }
+  .count .value { font-size: 32px; }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .charts, .glossary { grid-template-columns: minmax(0, 1fr); }
+  .card { padding: 14px; }
+  .queue { margin-inline: -14px; margin-bottom: -14px; }
 }
 </style>
 </head>
 <body>
-<main>
-  <h1>Conjunction Risk Desk</h1>
-  <p class="sub">Triage for the on-duty conjunction analyst. The system ranks and explains. The maneuver decision stays with the analyst.</p>
-  <p class="note" id="scope"></p>
-
-  <section class="tiles" id="tiles" aria-label="Summary"></section>
-
-  <section class="row2">
-    <div class="card">
-      <h2>Dangerous approaches per 24-hour window</h2>
-      <p class="note">Distinct events with a message in each window before TCA. The data has no shared clock, so windows are days before each event's own TCA.</p>
-      <div id="windows" style="margin-top:8px"></div>
+<header class="console">
+  <div class="wrap">
+    <div class="masthead">
+      <div>
+        <p class="eyebrow">Satellite collision avoidance</p>
+        <h1>Conjunction Risk Desk</h1>
+        <p class="lede">Ranks every predicted close approach between a satellite and another object, and explains why. The analyst makes the maneuver decision.</p>
+      </div>
+      <button class="theme" id="theme" type="button">Dark</button>
     </div>
-    <div class="card">
-      <h2>What stands out</h2>
-      <ul id="insights"></ul>
-    </div>
-  </section>
+    <section class="counts" id="tiles" aria-label="Events by tier"></section>
+    <div class="mix" id="mix" role="img" aria-label="Share of events in each tier"></div>
+    <p class="note" id="scope" style="color:var(--console-muted)"></p>
+  </div>
+</header>
 
+<main class="wrap page">
   <section class="desk">
     <div class="card">
       <h2>Event queue</h2>
-      <p class="note">One row per event, using its latest message. Critical first, review-flagged next, then highest probability.</p>
+      <p class="note">Each close approach, using its latest warning message. Critical first, then items needing review, then highest chance.</p>
       <div class="filters">
         <select id="f-tier" aria-label="Filter by tier"><option value="">All tiers</option><option>Critical</option><option>Elevated</option><option>Safe</option></select>
-        <select id="f-review" aria-label="Filter by review flag"><option value="">Any review state</option><option value="1">Needs review</option></select>
+        <select id="f-review" aria-label="Filter by review flag"><option value="">Any review state</option><option value="1">Needs review only</option></select>
         <select id="f-type" aria-label="Filter by object type"><option value="">All objects</option></select>
         <input id="f-id" placeholder="Event ID" aria-label="Find event ID" inputmode="numeric">
       </div>
-      <p class="note" id="count"></p>
+      <p class="note count-line" id="count"></p>
       <div class="queue"><table>
-        <thead><tr><th>Event</th><th>Tier</th><th class="num">Miss km</th><th class="num">P(Crit)</th><th class="num">Days</th><th>Object</th></tr></thead>
+        <thead><tr><th>Event</th><th>Tier</th><th class="num">Miss km</th><th class="num">Chance Critical</th><th class="num">Days out</th></tr></thead>
         <tbody id="rows"></tbody>
       </table></div>
     </div>
-    <div class="card" id="detail"></div>
+    <div class="card detail" id="detail"></div>
   </section>
 
-  <section class="eval">
+  <section class="pair">
+    <div class="card">
+      <h2>Dangerous approaches per 24-hour window</h2>
+      <p class="note">Distinct events with a message in each window. The data has no shared clock, so windows count back from each event's own closest approach.</p>
+      <div class="windows" id="windows"></div>
+      <div class="key"><span><i style="background:var(--accent)"></i>Inside 1 km</span><span><i style="background:var(--accent-soft)"></i>Inside 5 km</span></div>
+    </div>
+    <div class="card">
+      <h2>What stands out</h2>
+      <ul class="list" id="insights"></ul>
+    </div>
+  </section>
+
+  <section class="pair even">
     <div class="card">
       <h2>How far to trust this</h2>
-      <p class="note">Scored on the held-out test file, after predictions were saved. Thresholds were set on train only.</p>
-      <div class="scroll" id="scorecard" style="margin-top:8px"></div>
-      <div id="limits"></div>
+      <p class="note">Results on test data the model never saw. All settings were chosen on the training data.</p>
+      <div class="scroll board" id="scorecard"></div>
+      <ul class="list" id="limits"></ul>
     </div>
     <div class="card">
       <h2>Where it was wrong</h2>
-      <p class="note">Every Critical message the model missed on test. Select one to open the event.</p>
-      <div class="scroll" id="failures" style="margin-top:8px"></div>
+      <p class="note">Every Critical message the model missed on test data. Select one to open it.</p>
+      <div class="scroll" id="failures"></div>
     </div>
+  </section>
+
+  <section class="card">
+    <h2>What the terms mean</h2>
+    <dl class="glossary">
+      <div><dt>Close approach</dt><dd>Two objects are predicted to pass near each other. Each one is an event in the queue.</dd></div>
+      <div><dt>Warning message</dt><dd>An update on that prediction. One event usually gets several as it gets closer. Operators call these CDMs.</dd></div>
+      <div><dt>Closest approach</dt><dd>The moment the two objects are nearest. Operators call this TCA.</dd></div>
+      <div><dt>Miss distance</dt><dd>How far apart they are predicted to be at closest approach.</dd></div>
+      <div><dt>Collision probability</dt><dd>The chance they actually hit. Operators call this Pc. The brief treats 1 in 10,000 or higher as Critical.</dd></div>
+      <div><dt>Worst-case estimate</dt><dd>Roughly the highest the collision probability could be, given the tracking uncertainty. It comes with each message.</dd></div>
+      <div><dt>Chance Critical</dt><dd>The model's calibrated probability that this message belongs in the Critical tier.</dd></div>
+      <div><dt>Needs review</dt><dd>The system is unsure or the data is poor, so a person should check it whatever the tier says.</dd></div>
+      <div><dt>Overall score</dt><dd>Macro F1, from 0 to 1. It averages accuracy across all three tiers, so rare Critical rows count as much as Safe ones.</dd></div>
+    </dl>
   </section>
 </main>
 
 <script id="data" type="application/json">/*DATA*/</script>
+<script>/*THREE*/</script>
 <script>
 const D = JSON.parse(document.getElementById('data').textContent);
 const TIERS = ['Safe', 'Elevated', 'Critical'];
@@ -156,58 +267,89 @@ const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 const km = m => (m / 1000).toFixed(m < 10000 ? 2 : 1);
 const pct = p => p >= 0.9995 ? '100%' : p < 0.001 ? '<0.1%' : (p * 100).toFixed(p < 0.1 ? 1 : 0) + '%';
-const tierBadge = (t, big) => {
-  const s = el('span', 'tier' + (big ? ' big-tier' : ''));
+const TYPE_NAMES = { DEBRIS: 'Debris', PAYLOAD: 'Satellite', 'ROCKET BODY': 'Rocket body', UNKNOWN: 'Unknown object', TBA: 'Not yet identified' };
+const typeName = t => TYPE_NAMES[t] || t;
+// The data stores collision probability as log10, so -4 means 1 in 10,000.
+function oneIn(log10p) {
+  const n = Math.pow(10, -log10p);
+  if (n >= 1e12) return 'Below 1 in 1 trillion';
+  if (n <= 1) return 'Near certain';
+  const round = v => Number(v.toPrecision(2));
+  if (n >= 1e9) return `1 in ${round(n / 1e9)} billion`;
+  if (n >= 1e6) return `1 in ${round(n / 1e6)} million`;
+  return `1 in ${round(n).toLocaleString()}`;
+}
+const SUPERSCRIPT = '\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079';
+const oneInTick = v => '1 in 10' + String(Math.round(-v)).replace(/\d/g, d => SUPERSCRIPT[d]);
+const tierBadge = t => {
+  const s = el('span', 'tier');
   s.innerHTML = `<svg viewBox="0 0 12 12" aria-hidden="true">${ICON[t]}</svg>`;
   s.append(t);
   return s;
 };
 
-// Message arrays: [time_to_tca, miss, r, t, n, log10Pc, p10, p90, pSafe, pElevated, pCritical, tierIndex, needsReview]
+// Message arrays: [time_to_tca, miss, r, t, n, log10Pc, p10, p90, pSafe, pElevated, pCritical, tierIndex]
 const M = { time: 0, miss: 1, r: 2, t: 3, n: 4, pc: 5, lo: 6, hi: 7, ps: 8, pe: 9, pcrit: 10, tier: 11 };
 const latest = e => e.msgs[e.msgs.length - 1];
 const tierOf = e => TIERS[latest(e)[M.tier]];
 
+function setupTheme() {
+  const dark = () => { const t = document.documentElement.dataset.theme; return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; };
+  const label = () => { $('theme').textContent = dark() ? 'Light' : 'Dark'; };
+  $('theme').onclick = () => { document.documentElement.dataset.theme = dark() ? 'light' : 'dark'; label(); };
+  label();
+}
+
 function renderSummary() {
   $('scope').textContent = D.scope;
   $('tiles').replaceChildren(...D.tiles.map(t => {
-    const c = el('div', 'card tile');
-    const label = el('div', 'label');
+    const c = el('div', 'count'), label = el('div', 'label');
     if (t.tier) label.append(tierBadge(t.tier)); else label.textContent = t.label;
     c.append(el('div', 'value', t.value.toLocaleString()), label);
     return c;
   }));
-  const max = Math.max(...D.windows.map(w => w.within_1km), 1);
-  const head = el('div', 'bar-row head');
-  head.append(el('span', '', 'Before TCA'), el('span', '', 'Events inside 1 km'), el('span', 'num', '<1 km'), el('span', 'num', '<5 km'));
+  const counts = ['Critical', 'Elevated', 'Safe'].map(t => [t, D.tiles.find(x => x.tier === t).value]);
+  $('mix').replaceChildren(...counts.map(([t, n]) => {
+    const s = el('span');
+    s.style.flex = `${n} 0 0`;
+    s.style.background = STATUS[t];
+    s.title = `${t}: ${n.toLocaleString()} events`;
+    return s;
+  }));
+  const max = Math.max(...D.windows.map(w => w.within_5km), 1);
+  const head = el('div', 'window head');
+  head.append(el('span', '', 'Days out'), el('span'), el('span', 'num', '< 1 km'), el('span', 'num', '< 5 km'));
   $('windows').replaceChildren(head, ...D.windows.map(w => {
-    const r = el('div', 'bar-row');
-    const track = el('div', 'bar-track'), bar = el('div', 'bar');
-    bar.style.width = (w.within_1km / max * 100) + '%';
-    track.append(bar);
+    const r = el('div', 'window'), track = el('div', 'track'), wide = el('span', 'wide'), near = el('span', 'near');
+    wide.style.width = (w.within_5km / max * 100) + '%';
+    near.style.width = (w.within_1km / max * 100) + '%';
+    track.append(wide, near);
     r.append(el('span', '', w.label), track, el('span', 'num', w.within_1km), el('span', 'num', w.within_5km));
     return r;
   }));
   $('insights').replaceChildren(...D.insights.map(t => el('li', '', t)));
   const types = [...new Set(D.events.map(e => e.type))].sort();
-  $('f-type').append(...types.map(t => el('option', '', t)));
+  $('f-type').append(...types.map(t => { const o = el('option', '', typeName(t)); o.value = t; return o; }));
 }
 
-let visible = [], selected = null;
+let selected = null;
 function renderQueue() {
   const tier = $('f-tier').value, review = $('f-review').value, type = $('f-type').value, id = $('f-id').value.trim();
-  visible = D.events.filter(e => (!tier || tierOf(e) === tier) && (!review || e.review) && (!type || e.type === type) && (!id || String(e.id) === id));
+  const visible = D.events.filter(e => (!tier || tierOf(e) === tier) && (!review || e.review) && (!type || e.type === type) && (!id || String(e.id) === id));
   $('count').textContent = `${visible.length.toLocaleString()} of ${D.events.length.toLocaleString()} events` + (visible.length > 300 ? ', showing the first 300' : '');
   $('rows').replaceChildren(...visible.slice(0, 300).map(e => {
     const m = latest(e), tr = el('tr');
     tr.tabIndex = 0;
     tr.dataset.id = e.id;
-    if (selected === e) tr.className = 'selected';
+    tr.dataset.tier = tierOf(e);
+    if (selected === e) tr.classList.add('selected');
+    const idCell = el('td');
+    idCell.append(el('span', 'event-id', e.id), el('span', 'object', typeName(e.type)));
     const tierCell = el('td');
     tierCell.append(tierBadge(tierOf(e)));
-    if (e.review) tierCell.append(' ', el('span', 'note', 'review'));
+    if (e.review) { tierCell.append(el('br'), el('span', 'chip', 'Review')); }
     const num = v => el('td', 'num', v);
-    tr.append(el('td', '', e.id), tierCell, num(km(m[M.miss])), num(pct(m[M.pcrit])), num(m[M.time].toFixed(1)), el('td', '', e.type));
+    tr.append(idCell, tierCell, num(km(m[M.miss])), num(pct(m[M.pcrit])), num(m[M.time].toFixed(1)));
     tr.onclick = () => select(e);
     tr.onkeydown = k => { if (k.key === 'Enter' || k.key === ' ') { k.preventDefault(); select(e); } };
     return tr;
@@ -223,140 +365,351 @@ function select(e) {
 function renderDetail(e) {
   const m = latest(e), tier = tierOf(e), box = $('detail');
   box.replaceChildren();
-  const title = el('div');
-  title.append(el('h2', '', `Event ${e.id}, ${e.type}`), tierBadge(tier, true));
-  box.append(title);
 
-  const act = el('div', 'action' + (tier === 'Critical' ? ' critical' : ''));
-  act.append(el('strong', '', e.action), el('div', 'note', `Why: ${e.trigger}`));
-  if (e.review) act.append(el('div', 'note', `Needs analyst review: ${e.review}`));
+  const head = el('div', 'detail-head'), name = el('div');
+  name.append(el('h2', '', `Event ${e.id}`), el('p', 'note', `${typeName(e.type)}, ${e.msgs.length} warning message${e.msgs.length === 1 ? '' : 's'}, source record ${e.row.toLocaleString()}`));
+  head.append(name, tierBadge(tier));
+  box.append(head);
+
+  const act = el('div', `action ${tier}`);
+  act.append(el('strong', '', e.action), el('p', 'why', `Why: ${e.trigger}`));
+  if (m[M.miss] < 1000 && m[M.pc] < -4) act.append(el('p', 'why', 'The 1 km distance rule sets this tier, even though the estimated collision probability is low.'));
+  if (e.review) act.append(el('p', 'why', `Needs review: ${e.review}`));
   box.append(act);
 
+  const probs = el('div', 'probs'), bar = el('div', 'prob-bar'), labels = el('div', 'prob-labels');
+  [['Critical', m[M.pcrit]], ['Elevated', m[M.pe]], ['Safe', m[M.ps]]].forEach(([t, p]) => {
+    if (p > 0.0005) { const s = el('span'); s.style.flex = `${p} 0 0`; s.style.background = STATUS[t]; bar.append(s); }
+    const l = el('span', '', `${t} `); l.append(el('b', '', pct(p))); labels.append(l);
+  });
+  bar.setAttribute('role', 'img');
+  bar.setAttribute('aria-label', 'Probability of each tier');
+  probs.append(bar, labels);
+  box.append(probs);
+
   const facts = el('div', 'facts');
-  [['Miss distance', km(m[M.miss]) + ' km'], ['Time to TCA', m[M.time].toFixed(2) + ' days'], ['Relative speed', (e.speed / 1000).toFixed(1) + ' km/s'],
-   ['P(Safe)', pct(m[M.ps])], ['P(Elevated)', pct(m[M.pe])], ['P(Critical)', pct(m[M.pcrit])],
-   ['log10 Pc estimate', m[M.pc].toFixed(1)], ['80% interval', `${m[M.lo].toFixed(1)} to ${m[M.hi].toFixed(1)}`], ['Messages', e.msgs.length]]
-    .forEach(([k, v]) => { const d = el('div'); d.append(el('div', 'k', k), el('div', 'v', v)); facts.append(d); });
+  [['Miss distance', km(m[M.miss]) + ' km'], ['Time to closest approach', m[M.time].toFixed(1) + ' days'], ['Relative speed', (e.speed / 1000).toFixed(1) + ' km/s'],
+   ['Collision probability', oneIn(m[M.pc])], ['Likely high', oneIn(m[M.hi])], ['Likely low', oneIn(m[M.lo])]]
+    .forEach(([k, v]) => { const d = el('div', 'fact'); d.append(el('div', 'k', k), el('div', 'v', v)); facts.append(d); });
   box.append(facts);
-  box.append(el('p', 'note', `Largest model drivers: ${e.drivers}. Source: test_data.csv line ${e.row}.`));
 
   const charts = el('div', 'charts');
-  const geo = chartBox('Approach geometry, in-track vs cross-track', 'Straight-line relative motion near TCA, centred on the primary. Dots show where each message predicted closest approach. The latest is ringed.', 'chart-wide');
-  const miss = chartBox('Miss distance by message', 'km, log scale');
-  const pc = chartBox('Estimated log10 Pc by message', 'Line is the median, band is the 80% interval');
+  const geo = chartBox('Encounter in 3D', 'Drag to rotate. Your satellite is at the centre and the blue line is the other object\'s path near closest approach. Grey dots are earlier predictions of the closest point. Models are illustrations: real objects are metres across, and the fly-by speed is not to scale.', 'chart-wide');
+  const miss = chartBox('How the miss distance changed', 'Kilometres, by days before closest approach');
+  const pc = chartBox('How the collision probability changed', 'Model estimate with its likely range, by days before closest approach');
   charts.append(geo, miss, pc);
   box.append(charts);
-  geometry(geo.querySelector('.plot'), e);
+  if (!encounter3d(geo.querySelector('.plot'), e)) geometry(geo.querySelector('.plot'), e);
   const x = e.msgs.map(r => r[M.time]);
   line(miss.querySelector('.plot'), x, e.msgs.map(r => Math.log10(Math.max(r[M.miss], 1) / 1000)), {
     rules: [[0, '1 km'], [Math.log10(5), '5 km']],
-    fmt: v => Math.pow(10, v).toFixed(2) + ' km', tick: v => (Math.pow(10, v) >= 10 ? Math.pow(10, v).toFixed(0) : Math.pow(10, v).toFixed(1)),
+    fmt: v => Math.pow(10, v).toFixed(2) + ' km',
+    ticks: (lo, hi) => [0.01, 0.05, 0.1, 0.5, 2, 10, 20, 50, 100].map(Math.log10).filter(v => v > lo && v < hi),
+    tick: v => String(+Math.pow(10, v).toFixed(2)),
   });
   line(pc.querySelector('.plot'), x, e.msgs.map(r => r[M.pc]), {
     lo: e.msgs.map(r => r[M.lo]), hi: e.msgs.map(r => r[M.hi]), rules: [[-4, 'Critical'], [-6, 'Elevated']],
-    fmt: v => 'log10 Pc ' + v.toFixed(1), tick: v => v.toFixed(0),
+    fmt: v => oneIn(v),
+    ticks: (lo, hi) => { const step = [2, 5, 10].find(s => (hi - lo) / s <= 5) || 10, out = []; for (let v = Math.ceil(lo / step) * step; v < hi; v += step) if (v !== -4 && v !== -6) out.push(v); return out; },
+    tick: oneInTick,
   });
 
   const det = el('details');
-  det.append(el('summary', '', 'Message table'));
+  det.append(el('summary', '', 'See every message'));
   const wrap = el('div', 'scroll'), table = el('table');
-  table.innerHTML = '<thead><tr><th class="num">Days</th><th class="num">Miss km</th><th class="num">log10 Pc</th><th class="num">P(Crit)</th><th>Tier</th></tr></thead>';
+  table.innerHTML = '<thead><tr><th class="num">Days out</th><th class="num">Miss km</th><th class="num">Collision probability</th><th class="num">Chance Critical</th><th>Tier</th></tr></thead>';
   const body = el('tbody');
   e.msgs.forEach(r => {
     const tr = el('tr');
-    [r[M.time].toFixed(2), km(r[M.miss]), r[M.pc].toFixed(1), pct(r[M.pcrit])].forEach(v => tr.append(el('td', 'num', v)));
+    [r[M.time].toFixed(1), km(r[M.miss]), oneIn(r[M.pc]), pct(r[M.pcrit])].forEach(v => tr.append(el('td', 'num', v)));
     const t = el('td'); t.append(tierBadge(TIERS[r[M.tier]])); tr.append(t);
     body.append(tr);
   });
   table.append(body); wrap.append(table); det.append(wrap); box.append(det);
+  box.append(el('p', 'note', `What influenced the model most: ${e.drivers}.`));
 }
 
 function chartBox(title, note, cls) {
   const c = el('div', 'chart ' + (cls || ''));
   c.append(el('h3', '', title), el('p', 'note', note));
-  const p = el('div'); p.className = 'plot'; p.style.position = 'relative';
-  c.append(p);
+  c.append(el('div', 'plot'));
   return c;
 }
 
-const niceRange = (lo, hi) => { const pad = (hi - lo || 1) * 0.12; return [lo - pad, hi + pad]; };
+const padded = (lo, hi) => { const pad = (hi - lo || 1) * 0.12; return [lo - pad, hi + pad]; };
 
 function line(host, xs, ys, o) {
-  const W = 420, H = 210, L = 40, R = 66, T = 10, B = 28;
+  const W = 440, H = 220, L = 64, R = 62, T = 10, B = 26;
   const all = ys.concat(o.lo || [], o.hi || [], o.rules.map(r => r[0]));
-  const [y0, y1] = niceRange(Math.min(...all), Math.max(...all));
+  const [y0, y1] = padded(Math.min(...all), Math.max(...all));
   const xMax = Math.max(...xs) + 0.1, xMin = Math.min(...xs) - 0.1;
   const X = v => L + (xMax - v) / (xMax - xMin) * (W - L - R);
   const Y = v => T + (y1 - v) / (y1 - y0) * (H - T - B);
-  const yTicks = [...Array(5)].map((_, i) => y0 + (y1 - y0) * (i + 0.5) / 5);
   const xTicks = [];
   for (let d = Math.ceil(xMin); d <= Math.floor(xMax); d++) xTicks.push(d);
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Line chart, values are in the message table">`;
-  yTicks.forEach(v => { s += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--grid)"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${o.tick(v)}</text>`; });
+  o.ticks(y0, y1).forEach(v => { s += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${o.tick(v)}</text>`; });
   xTicks.forEach(d => { s += `<text x="${X(d)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--muted)">${d}d</text>`; });
   s += `<line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" stroke="var(--axis)"/>`;
   o.rules.forEach(([v, label]) => { s += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--ink-2)"/><text x="${W - R + 5}" y="${Y(v) + 4}" font-size="11" fill="var(--ink-2)">${label}</text>`; });
   if (o.lo) {
     const up = xs.map((x, i) => `${X(x)},${Y(o.hi[i])}`), down = xs.map((x, i) => `${X(x)},${Y(o.lo[i])}`).reverse();
-    s += `<polygon points="${up.concat(down).join(' ')}" fill="var(--band)"/>`;
+    s += `<polygon points="${up.concat(down).join(' ')}" fill="var(--interval)"/>`;
   }
-  s += `<polyline points="${xs.map((x, i) => `${X(x)},${Y(ys[i])}`).join(' ')}" fill="none" stroke="var(--series)" stroke-width="2" stroke-linejoin="round"/>`;
-  xs.forEach((x, i) => { s += `<circle cx="${X(x)}" cy="${Y(ys[i])}" r="3.5" fill="var(--series)" stroke="var(--surface)" stroke-width="2"/>`; });
+  s += `<polyline points="${xs.map((x, i) => `${X(x)},${Y(ys[i])}`).join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>`;
+  xs.forEach((x, i) => { s += `<circle cx="${X(x)}" cy="${Y(ys[i])}" r="${i === xs.length - 1 ? 5 : 3.5}" fill="var(--accent)" stroke="var(--panel)" stroke-width="2"/>`; });
   s += '</svg>';
   host.innerHTML = s;
-  const tip = el('div', 'tip'); host.append(tip);
+  const tip = el('div', 'tip'); tip.hidden = true; host.append(tip);
   const svg = host.querySelector('svg');
   svg.addEventListener('pointermove', ev => {
     const box = svg.getBoundingClientRect(), px = (ev.clientX - box.left) / box.width * W;
     let best = 0; xs.forEach((x, i) => { if (Math.abs(X(x) - px) < Math.abs(X(xs[best]) - px)) best = i; });
-    tip.textContent = `${xs[best].toFixed(2)} d: ${o.fmt(ys[best])}`;
-    tip.style.display = 'block';
-    tip.style.left = Math.min(X(xs[best]) / W * box.width + 8, box.width - tip.offsetWidth) + 'px';
+    tip.textContent = `${xs[best].toFixed(1)} days out: ${o.fmt(ys[best])}`;
+    tip.hidden = false;
+    tip.style.left = Math.max(0, Math.min(X(xs[best]) / W * box.width + 8, box.width - tip.offsetWidth)) + 'px';
     tip.style.top = Math.max(Y(ys[best]) / H * box.height - 30, 0) + 'px';
   });
-  svg.addEventListener('pointerleave', () => { tip.style.display = 'none'; });
+  svg.addEventListener('pointerleave', () => { tip.hidden = true; });
+}
+
+let scene3d = null;
+
+function satelliteModel(bus, panel) {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1.4), new THREE.MeshStandardMaterial({ color: bus, metalness: 0.6, roughness: 0.4 }));
+  const wing = new THREE.BoxGeometry(2.2, 0.05, 0.9), wingMat = new THREE.MeshStandardMaterial({ color: panel, metalness: 0.3, roughness: 0.5 });
+  [-1.7, 1.7].forEach(x => { const w = new THREE.Mesh(wing, wingMat); w.position.x = x; group.add(w); });
+  group.add(body);
+  return group;
+}
+
+function secondaryModel(type, tierColor) {
+  const material = new THREE.MeshStandardMaterial({ color: 0x9aa7ba, emissive: tierColor, emissiveIntensity: 0.45, roughness: 0.7, flatShading: true });
+  if (type === 'PAYLOAD') {
+    const sat = satelliteModel(0x9aa7ba, 0x4a6a9a);
+    sat.scale.setScalar(0.7);
+    sat.traverse(o => { if (o.material) { o.material.emissive = new THREE.Color(tierColor); o.material.emissiveIntensity = 0.45; } });
+    return sat;
+  }
+  if (type === 'ROCKET BODY') {
+    const group = new THREE.Group();
+    group.add(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 2.2, 12), material));
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.8, 12), material);
+    nose.position.y = 1.5;
+    group.add(nose);
+    return group;
+  }
+  if (type === 'DEBRIS') {
+    const shard = new THREE.IcosahedronGeometry(1, 1), pos = shard.attributes.position, v = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i);
+      v.multiplyScalar(1 + 0.35 * Math.sin(v.x * 5) * Math.cos(v.y * 4 + v.z * 3));
+      pos.setXYZ(i, v.x, v.y, v.z);
+    }
+    return new THREE.Mesh(shard, material);
+  }
+  return new THREE.Mesh(new THREE.OctahedronGeometry(1), material);
+}
+
+function encounter3d(host, e) {
+  if (scene3d) { scene3d.stop(); scene3d = null; }
+  let renderer;
+  try {
+    if (!window.THREE) return false;
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  } catch (err) { return false; }
+
+  // RTN to scene axes, keeping the frame right-handed: x = in-track, y = radial, z = -cross-track.
+  const rtn = (r, t, n) => new THREE.Vector3(t, r, -n);
+  const pts = e.msgs.map(m => rtn(m[M.r] / 1000, m[M.t] / 1000, m[M.n] / 1000));
+  const last = pts[pts.length - 1], dir = rtn(...e.velocity).normalize();
+  const reach = Math.max(6.5, ...pts.map(p => p.length())) * 1.15, ext = reach * 1.7;
+  const tierColor = new THREE.Color({ Safe: '#0ca30c', Elevated: '#fab219', Critical: '#d03b3b' }[tierOf(e)]).getHex();
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const scene = new THREE.Scene();
+  scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+  sun.position.set(1, 2, 1.5);
+  scene.add(sun);
+
+  const stars = new THREE.BufferGeometry(), starPos = [];
+  for (let i = 0; i < 500; i++) {
+    const p = new THREE.Vector3(Math.sin(i * 12.9898) * 43758.5453 % 1, Math.sin(i * 78.233) * 12543.123 % 1, Math.sin(i * 39.425) * 24634.633 % 1).normalize().multiplyScalar(reach * 9);
+    starPos.push(p.x, p.y, p.z);
+  }
+  stars.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+  scene.add(new THREE.Points(stars, new THREE.PointsMaterial({ color: 0xa9b8cf, size: reach * 0.025, transparent: true, opacity: 0.55 })));
+
+  const axis = new THREE.BufferGeometry().setFromPoints([1, 0, 0, 0, 1, 0, 0, 0, 1].reduce((list, _, i, a) => (i % 3 ? list : list.concat([new THREE.Vector3(a[i], a[i + 1], a[i + 2]).multiplyScalar(-reach * 1.1), new THREE.Vector3(a[i], a[i + 1], a[i + 2]).multiplyScalar(reach * 1.1)])), []));
+  scene.add(new THREE.LineSegments(axis, new THREE.LineBasicMaterial({ color: 0x3a4c6b })));
+
+  const bubble = (radius, color, opacity) => {
+    scene.add(new THREE.Mesh(new THREE.SphereGeometry(radius, 40, 28), new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false })));
+    const circle = new THREE.BufferGeometry().setFromPoints(new THREE.EllipseCurve(0, 0, radius, radius, 0, Math.PI * 2).getPoints(72).map(p => new THREE.Vector3(p.x, p.y, 0)));
+    [[0, 0], [Math.PI / 2, 0], [0, Math.PI / 2]].forEach(([rx, ry]) => {
+      const ring = new THREE.LineLoop(circle, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.55 }));
+      ring.rotation.set(rx, ry, 0);
+      scene.add(ring);
+    });
+  };
+  bubble(1, 0xd03b3b, 0.22);
+  bubble(5, 0x5aa2f0, 0.05);
+
+  const rod = (from, to, radius, color) => {
+    const span = to.clone().sub(from), mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, span.length(), 8), new THREE.MeshBasicMaterial({ color }));
+    mesh.position.copy(from).addScaledVector(span, 0.5);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), span.clone().normalize());
+    scene.add(mesh);
+  };
+  rod(last.clone().addScaledVector(dir, -ext), last.clone().addScaledVector(dir, ext), reach * 0.006, 0x5aa2f0);
+  if (last.length() > 0) rod(new THREE.Vector3(), last, reach * 0.003, 0xf2f6fc);
+
+  const dot = new THREE.SphereGeometry(reach * 0.012, 12, 10);
+  pts.slice(0, -1).forEach(p => { const m = new THREE.Mesh(dot, new THREE.MeshBasicMaterial({ color: 0x8e9ab0 })); m.position.copy(p); scene.add(m); });
+  const closest = new THREE.Mesh(new THREE.SphereGeometry(reach * 0.022, 16, 12), new THREE.MeshBasicMaterial({ color: tierColor }));
+  closest.position.copy(last);
+  scene.add(closest);
+
+  const size = reach * 0.07;
+  const primary = satelliteModel(0xc9a24a, 0x2b5fa8);
+  primary.scale.setScalar(size);
+  scene.add(primary);
+  const secondary = secondaryModel(e.type, tierColor);
+  secondary.scale.setScalar(size);
+  secondary.position.copy(last);
+  scene.add(secondary);
+
+  const frame = el('div', 'space');
+  const canvas = renderer.domElement;
+  canvas.tabIndex = 0;
+  canvas.setAttribute('role', 'img');
+  canvas.setAttribute('aria-label', `3D view of event ${e.id}. Values are in the message table.`);
+  frame.append(canvas);
+  host.replaceChildren(frame);
+  const miss = km(e.msgs[e.msgs.length - 1][M.miss]);
+  const labels = [
+    [new THREE.Vector3(), 'Your satellite', '', -104, 16], [new THREE.Vector3(0, -1, 0), '1 km', '', -14, 12], [new THREE.Vector3(0, 5, 0), '5 km', '', 8, -7], [last, `Closest ${miss} km`, '', 14, -24],
+    [new THREE.Vector3(reach * 1.1, 0, 0), 'Along orbit', 'axis', 8, -7], [new THREE.Vector3(0, reach * 1.1, 0), 'Up', 'axis', 8, -7], [new THREE.Vector3(0, 0, -reach * 1.1), 'Across orbit', 'axis', 8, -7],
+  ].map(([pos, text, cls, dx, dy]) => { const d = el('div', `space-label ${cls}`, text); frame.append(d); return { pos, d, dx, dy }; });
+
+  const camera = new THREE.PerspectiveCamera(36, 1, reach * 0.05, reach * 30);
+  let width = 0, height = 0;
+  const fit = () => {
+    width = host.clientWidth; height = Math.round(Math.min(460, Math.max(280, width * 0.56)));
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(width, height);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+  };
+  fit();
+  const resize = new ResizeObserver(() => { if (host.clientWidth !== width) fit(); });
+  resize.observe(host);
+
+  // Start side-on to the approach line so the miss distance reads true.
+  const side = new THREE.Vector3().crossVectors(dir, last).normalize();
+  if (!side.lengthSq()) side.set(0, 0, 1);
+  side.multiplyScalar(0.9).add(new THREE.Vector3(0.2, 0.35, 0.2)).normalize();
+  let theta = Math.atan2(side.x, side.z), phi = Math.acos(Math.min(1, Math.max(-1, side.y))), touched = false, dragging = null;
+  const distance = reach * 3.6;
+  canvas.addEventListener('pointerdown', ev => { dragging = [ev.clientX, ev.clientY]; touched = true; canvas.setPointerCapture(ev.pointerId); });
+  canvas.addEventListener('pointerup', () => { dragging = null; });
+  canvas.addEventListener('pointercancel', () => { dragging = null; });
+  canvas.addEventListener('pointermove', ev => {
+    if (!dragging) return;
+    theta -= (ev.clientX - dragging[0]) * 0.008;
+    phi = Math.min(3, Math.max(0.14, phi - (ev.clientY - dragging[1]) * 0.008));
+    dragging = [ev.clientX, ev.clientY];
+  });
+  canvas.addEventListener('keydown', ev => {
+    const turn = { ArrowLeft: [-0.12, 0], ArrowRight: [0.12, 0], ArrowUp: [0, -0.12], ArrowDown: [0, 0.12] }[ev.key];
+    if (!turn) return;
+    ev.preventDefault(); touched = true;
+    theta += turn[0]; phi = Math.min(3, Math.max(0.14, phi + turn[1]));
+  });
+
+  let raf = 0, before = performance.now(), phase = 0.1;
+  const projected = new THREE.Vector3();
+  const tick = now => {
+    const dt = Math.min(0.05, (now - before) / 1000);
+    before = now;
+    if (!reduced) {
+      if (!touched) theta += dt * 0.08;
+      phase = (phase + dt / 10) % 1;
+      secondary.position.copy(last).addScaledVector(dir, (phase - 0.5) * 1.9 * ext);
+      secondary.rotation.x += dt * 0.5; secondary.rotation.y += dt * 0.35;
+      primary.rotation.y += dt * 0.1;
+    }
+    camera.position.set(Math.sin(phi) * Math.sin(theta), Math.cos(phi), Math.sin(phi) * Math.cos(theta)).multiplyScalar(distance);
+    camera.lookAt(0, 0, 0);
+    camera.updateMatrixWorld();
+    renderer.render(scene, camera);
+    labels.forEach(({ pos, d, dx, dy }) => {
+      projected.copy(pos).project(camera);
+      d.style.transform = `translate(${Math.round((projected.x + 1) / 2 * width + dx)}px, ${Math.round((1 - projected.y) / 2 * height + dy)}px)`;
+    });
+    raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+
+  scene3d = {
+    stop() {
+      cancelAnimationFrame(raf);
+      resize.disconnect();
+      scene.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+      renderer.dispose();
+      renderer.forceContextLoss();
+    },
+  };
+  return true;
 }
 
 function geometry(host, e) {
-  const W = 760, H = 300, cx = W / 2, cy = H / 2;
+  const W = 820, H = 340, cx = W / 2, cy = H / 2;
   const pts = e.msgs.map(r => [r[M.t] / 1000, r[M.n] / 1000]);
   const reach = Math.max(6.5, ...pts.map(p => Math.hypot(p[0], p[1]))) * 1.15;
-  const scale = (H / 2 - 16) / reach;
+  const scale = (H / 2 - 18) / reach;
   const X = v => cx + v * scale, Y = v => cy - v * scale;
-  const last = pts[pts.length - 1], v = e.velocity, len = Math.hypot(v[0], v[1]) || 1;
-  const ext = W / scale, ax = last[0] - v[0] / len * ext, ay = last[1] - v[1] / len * ext, bx = last[0] + v[0] / len * ext, by = last[1] + v[1] / len * ext;
+  const last = pts[pts.length - 1], v = e.velocity, len = Math.hypot(v[1], v[2]) || 1;
+  const ux = v[1] / len, uy = v[2] / len, ext = W / scale;
+  const ax = last[0] - ux * ext, ay = last[1] - uy * ext, bx = last[0] + ux * ext, by = last[1] + uy * ext;
   const color = STATUS[tierOf(e)];
-  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Approach geometry, values are in the message table"><clipPath id="clip"><rect width="${W}" height="${H}"/></clipPath><g clip-path="url(#clip)">`;
-  s += `<line x1="0" x2="${W}" y1="${cy}" y2="${cy}" stroke="var(--grid)"/><line x1="${cx}" x2="${cx}" y1="0" y2="${H}" stroke="var(--grid)"/>`;
-  [[1, '1 km'], [5, '5 km']].forEach(([r, label]) => {
-    s += `<circle cx="${cx}" cy="${cy}" r="${r * scale}" fill="none" stroke="var(--ink-2)"/><text x="${cx + r * scale + 4}" y="${cy - 5}" font-size="11" fill="var(--ink-2)">${label}</text>`;
+  const rings = [[1, '1 km'], [5, '5 km']];
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Encounter geometry, values are in the message table"><clipPath id="clip"><rect width="${W}" height="${H}"/></clipPath><g clip-path="url(#clip)">`;
+  s += `<line x1="0" x2="${W}" y1="${cy}" y2="${cy}" stroke="var(--line)"/><line x1="${cx}" x2="${cx}" y1="0" y2="${H}" stroke="var(--line)"/>`;
+  rings.forEach(([r, label]) => {
+    s += `<circle cx="${cx}" cy="${cy}" r="${r * scale}" fill="${r === 1 ? 'var(--tint-critical)' : 'var(--wash)'}" stroke="var(--axis)"/>`;
+    s += `<text x="${cx + r * scale * 0.72 + 4}" y="${cy - r * scale * 0.72 - 3}" font-size="11" fill="var(--ink-2)">${label}</text>`;
   });
-  s += `<line x1="${X(ax)}" y1="${Y(ay)}" x2="${X(bx)}" y2="${Y(by)}" stroke="var(--series)" stroke-width="2"/>`;
-  pts.slice(0, -1).forEach(p => { s += `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="3.5" fill="var(--axis)" stroke="var(--surface)" stroke-width="1.5"/>`; });
-  s += `<circle cx="${X(last[0])}" cy="${Y(last[1])}" r="7" fill="${color}" stroke="var(--surface)" stroke-width="2"/>`;
-  s += `<rect x="${cx - 3}" y="${cy - 3}" width="6" height="6" fill="var(--ink)"/><text x="${cx - 7}" y="${cy + 15}" text-anchor="end" font-size="11" fill="var(--ink)">Primary</text>`;
-  s += `<text x="8" y="${cy - 5}" font-size="11" fill="var(--muted)">In-track</text><text x="${cx + 5}" y="14" font-size="11" fill="var(--muted)">Cross-track</text></g></svg>`;
+  s += `<line x1="${X(ax)}" y1="${Y(ay)}" x2="${X(bx)}" y2="${Y(by)}" stroke="var(--accent)" stroke-width="2"/>`;
+  pts.slice(0, -1).forEach(p => { s += `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="3.5" fill="var(--muted)" fill-opacity=".65" stroke="var(--scope)" stroke-width="1.5"/>`; });
+  s += `<circle cx="${X(last[0])}" cy="${Y(last[1])}" r="8" fill="${color}" stroke="var(--scope)" stroke-width="2"/>`;
+  s += `<rect x="${cx - 3}" y="${cy - 3}" width="6" height="6" fill="var(--ink)"/><text x="${cx - 7}" y="${cy + 15}" text-anchor="end" font-size="11" fill="var(--ink)">Your satellite</text>`;
+  s += `<text x="10" y="${cy - 6}" font-size="11" fill="var(--muted)">Along orbit</text><text x="${cx + 6}" y="15" font-size="11" fill="var(--muted)">Across orbit</text></g></svg>`;
   host.innerHTML = s;
 }
 
 function renderEvaluation() {
   const table = el('table');
-  table.innerHTML = '<thead><tr><th>Method</th><th class="num">Macro F1</th><th class="num">Missed Critical</th><th class="num">False Critical</th><th class="num">Safe over-called</th></tr></thead>';
+  table.innerHTML = '<thead><tr><th>Method</th><th class="num">Overall score</th><th class="num">Critical missed</th><th class="num">False Critical alarms</th><th class="num">Safe raised as risky</th></tr></thead>';
   const body = el('tbody');
   D.scorecard.forEach(r => { const tr = el('tr'); tr.append(el('td', '', r.name), ...[r.f1, r.missed, r.false_critical, r.over].map(v => el('td', 'num', v))); body.append(tr); });
   table.append(body);
   $('scorecard').replaceChildren(table);
-  const list = el('ul'); list.append(...D.limits.map(t => el('li', '', t)));
-  $('limits').replaceChildren(list);
+  $('limits').replaceChildren(...D.limits.map(t => el('li', '', t)));
 
   const ft = el('table');
-  ft.innerHTML = '<thead><tr><th>Event</th><th class="num">Days</th><th class="num">Miss km</th><th class="num">True log10 Pc</th><th class="num">P(Crit)</th><th>Flagged</th></tr></thead>';
+  ft.innerHTML = '<thead><tr><th>Event</th><th class="num">Days out</th><th class="num">Miss km</th><th class="num">Actual probability</th><th class="num">Chance Critical</th><th>Why it went to review</th></tr></thead>';
   const fb = el('tbody');
   D.failures.forEach(f => {
     const tr = el('tr', 'failure');
     tr.tabIndex = 0;
-    tr.append(el('td', '', f.id), ...[f.days, f.miss, f.risk, f.p].map(v => el('td', 'num', v)), el('td', '', f.review || 'no'));
-    const open = () => { select(D.events.find(e => e.id === f.id)); $('detail').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+    tr.append(el('td', 'mono', f.id), ...[f.days, f.miss, oneIn(f.risk), f.p].map(v => el('td', 'num', v)), el('td', '', f.review || 'Not flagged'));
+    const open = () => {
+      select(D.events.find(e => e.id === f.id));
+      $('detail').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    };
     tr.onclick = open;
     tr.onkeydown = k => { if (k.key === 'Enter') open(); };
     fb.append(tr);
@@ -365,6 +718,7 @@ function renderEvaluation() {
   $('failures').replaceChildren(ft);
 }
 
+setupTheme();
 renderSummary();
 renderEvaluation();
 ['f-tier', 'f-review', 'f-type', 'f-id'].forEach(id => $(id).addEventListener('input', renderQueue));
