@@ -98,6 +98,9 @@ td.num, .mono { font-family: var(--font-data); font-size: 13px; font-variant-num
 .object { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .tier { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-weight: 500; }
 .tier svg { width: 12px; height: 12px; flex: none; }
+.more { display: block; width: 100%; padding: 10px; border: 0; background: var(--panel-2); color: var(--ink-2); font: 500 13px var(--font-body); cursor: pointer; }
+.more:hover { background: var(--wash); }
+.more[hidden] { display: none; }
 .chip { display: inline-block; font-size: 11px; font-weight: 500; line-height: 1.5; color: var(--ink-2); border: 1px solid var(--axis); border-radius: 4px; padding: 0 5px; margin: 2px 4px 0 0; white-space: nowrap; }
 
 .detail { display: grid; gap: 16px; }
@@ -205,10 +208,10 @@ ul { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
   <section class="desk">
     <div class="card">
       <h2>Event queue</h2>
-      <p class="note">Each close approach, using its latest warning message. Critical first, then items needing review, then highest chance.</p>
+      <p class="note">Each close approach, using its latest warning message. Critical first, then everything needing review, then the rest. Highest tier and chance come first within each group.</p>
       <div class="filters">
         <select id="f-tier" aria-label="Filter by tier"><option value="">All tiers</option><option>Critical</option><option value="model">Critical found by model</option><option>Elevated</option><option>Safe</option></select>
-        <select id="f-review" aria-label="Filter by review flag"><option value="">Any review state</option><option value="1">Needs review only</option></select>
+        <select id="f-review" aria-label="Filter by review flag"><option value="">Any review state</option><option value="1">Needs review only</option><option value="was">Was Critical earlier</option></select>
         <select id="f-type" aria-label="Filter by object type"><option value="">All objects</option></select>
         <input id="f-id" placeholder="Event ID" aria-label="Find event ID" inputmode="numeric">
       </div>
@@ -216,7 +219,7 @@ ul { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
       <div class="queue"><table>
         <thead><tr><th>Event</th><th>Tier</th><th class="num">Miss km</th><th class="num">Chance Critical</th><th class="num">Days out</th></tr></thead>
         <tbody id="rows"></tbody>
-      </table></div>
+      </table><button class="more" id="more" type="button" hidden>Show 300 more</button></div>
     </div>
     <div class="card detail" id="detail"></div>
   </section>
@@ -365,12 +368,14 @@ function renderWindows(unit) {
   document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.unit === unit));
 }
 
-let selected = null;
+const PAGE = 300;
+let selected = null, limit = PAGE, visible = [];
 function renderQueue() {
   const tier = $('f-tier').value, review = $('f-review').value, type = $('f-type').value, id = $('f-id').value.trim();
-  const visible = D.events.filter(e => (!tier || (tier === 'model' ? e.model : tierOf(e) === tier)) &&(!review || e.review) && (!type || e.type === type) && (!id || String(e.id) === id));
-  $('count').textContent = `${visible.length.toLocaleString()} of ${D.events.length.toLocaleString()} events` + (visible.length > 300 ? ', showing the first 300' : '');
-  $('rows').replaceChildren(...visible.slice(0, 300).map(e => {
+  visible = D.events.filter(e => (!tier || (tier === 'model' ? e.model : tierOf(e) === tier)) && (!review || (review === 'was' ? e.was_critical : e.review)) && (!type || e.type === type) && (!id || String(e.id) === id));
+  $('count').textContent = `${visible.length.toLocaleString()} of ${D.events.length.toLocaleString()} events` + (visible.length > limit ? `, showing the first ${limit.toLocaleString()}` : '');
+  $('more').hidden = visible.length <= limit;
+  $('rows').replaceChildren(...visible.slice(0, limit).map(e => {
     const m = latest(e), tr = el('tr');
     tr.tabIndex = 0;
     tr.dataset.id = e.id;
@@ -380,7 +385,7 @@ function renderQueue() {
     idCell.append(el('span', 'event-id', e.id), el('span', 'object', typeName(e.type)));
     const tierCell = el('td');
     tierCell.append(tierBadge(tierOf(e)));
-    const chips = [e.model && 'Found by model', e.review && 'Review'].filter(Boolean);
+    const chips = [e.model && 'Found by model', e.review && 'Review', e.was_critical && 'Was Critical'].filter(Boolean);
     if (chips.length) tierCell.append(el('br'), ...chips.map(c => el('span', 'chip', c)));
     const num = v => el('td', 'num', v);
     tr.append(idCell, tierCell, num(km(m[M.miss])), num(pct(m[M.pcrit])), num(m[M.time].toFixed(1)));
@@ -392,6 +397,8 @@ function renderQueue() {
 
 function select(e) {
   selected = e;
+  const index = visible.indexOf(e);
+  if (index >= limit) { limit = Math.ceil((index + 1) / PAGE) * PAGE; renderQueue(); }
   document.querySelectorAll('.queue tbody tr').forEach(r => r.classList.toggle('selected', r.dataset.id === String(e.id)));
   renderDetail(e);
 }
@@ -410,6 +417,7 @@ function renderDetail(e) {
   if (m[M.miss] < 1000 && m[M.pc] < -4) act.append(el('p', 'why', 'The 1 km distance rule sets this tier, even though the estimated collision probability is low.'));
   if (e.model) act.append(el('p', 'why', `The model raises Critical from a ${D.critical_cut} chance. That line was set to catch ${D.critical_recall} of Critical cases in training, at the cost of some false alarms.`));
   if (e.review) act.append(el('p', 'why', `Needs review: ${e.review}`));
+  if (e.was_critical) act.append(el('p', 'why', 'This event was Critical on an earlier message. Do not close it on one quieter update.'));
   box.append(act);
 
   const probs = el('div', 'probs'), bar = el('div', 'prob-bar'), labels = el('div', 'prob-labels');
@@ -766,14 +774,13 @@ function renderEvaluation() {
 setupTheme();
 renderSummary();
 renderEvaluation();
-['f-tier', 'f-review', 'f-type', 'f-id'].forEach(id => $(id).addEventListener('input', renderQueue));
+['f-tier', 'f-review', 'f-type', 'f-id'].forEach(id => $(id).addEventListener('input', () => { limit = PAGE; renderQueue(); }));
+$('more').addEventListener('click', () => { limit += PAGE; renderQueue(); });
 document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => renderWindows(b.dataset.unit)));
 renderQueue();
 // Open on the most confident Critical the model found beyond 1 km, since the 1 km rule needs no model.
 const opening = D.events.find(e => e.model && !e.review) || D.events[0];
 select(opening);
-const openingRow = document.querySelector(`.queue tbody tr[data-id="${opening.id}"]`);
-if (openingRow) openingRow.closest('.queue').scrollTop = openingRow.offsetTop - openingRow.offsetHeight;
 </script>
 </body>
 </html>

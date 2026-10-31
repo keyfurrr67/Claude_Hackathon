@@ -19,6 +19,7 @@ ACTIONS = {
     "Elevated": "Keep monitoring and re-check on the next message.",
     "Safe": "No action proposed.",
 }
+SAFE_REVIEW_ACTION = "Analyst to check before clearing."
 WINDOW_DAYS = range(2, 7)
 TRIGGERS = {
     "rule: miss < 1 km": "Predicted to pass within 1 km",
@@ -70,6 +71,13 @@ def load():
     return pd.concat([predictions, raw], axis=1), json.loads((OUT / "metrics.json").read_text(encoding="utf-8"))
 
 
+def queue_order(e):
+    """Critical first, then every event needing review, then the rest."""
+    m = e["msgs"][-1]
+    group = 0 if m[11] == TIERS.index("Critical") else 1 if e["review"] else 2
+    return group, not e["review"], -m[11], -m[10], m[1]
+
+
 def build_events(d):
     d = d.assign(tier_index=d.predicted_tier.map(TIERS.index), source_line=d.row_id + 2)
     events = []
@@ -81,14 +89,17 @@ def build_events(d):
             "relative_position_n", "log10_pc_pred", "log10_pc_p10", "log10_pc_p90", "p_safe",
             "p_elevated", "p_critical", "tier_index",
         ]].round(4).values.tolist()
+        critical_now = last.predicted_tier == "Critical"
         events.append({
             "id": int(event_id), "type": last.c_object_type, "msgs": msgs, "review": REVIEW_REASONS[last.review_reason],
             "model": bool(last.trigger == MODEL_CRITICAL),
+            "was_critical": bool(not critical_now and (g.predicted_tier == "Critical").any()),
             "trigger": TRIGGERS[last.trigger], "drivers": plain_drivers(last.top_drivers), "row": int(last.source_line),
-            "speed": float(last.relative_speed), "action": ACTIONS[last.predicted_tier],
+            "speed": float(last.relative_speed),
+            "action": SAFE_REVIEW_ACTION if last.predicted_tier == "Safe" and last.review_reason else ACTIONS[last.predicted_tier],
             "velocity": [float(last.relative_velocity_r), float(last.relative_velocity_t), float(last.relative_velocity_n)],
         })
-    events.sort(key=lambda e: (-e["msgs"][-1][11], not e["review"], -e["msgs"][-1][10], e["msgs"][-1][1]))
+    events.sort(key=queue_order)
     return events
 
 
