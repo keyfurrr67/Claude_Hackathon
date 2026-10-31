@@ -11,8 +11,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from pipeline import OUT, ROOT, TIERS
+from pipeline import CRITICAL_RECALL, OUT, ROOT, TIERS
 
+MODEL_CRITICAL = "model: Pc >= 1e-4 likely"
 ACTIONS = {
     "Critical": "Send to maneuver planning. Analyst decides.",
     "Elevated": "Keep monitoring and re-check on the next message.",
@@ -22,7 +23,7 @@ WINDOW_DAYS = range(2, 7)
 TRIGGERS = {
     "rule: miss < 1 km": "Predicted to pass within 1 km",
     "rule: miss 1-5 km": "Predicted to pass within 1 to 5 km",
-    "model: Pc >= 1e-4 likely": "Model expects a collision probability of at least 1 in 10,000",
+    MODEL_CRITICAL: "Model expects a collision probability of at least 1 in 10,000",
     "model: Pc >= 1e-6 likely": "Model expects a collision probability of at least 1 in 1 million",
     "clear: miss > 5 km and Pc < 1e-6 likely": "Passes beyond 5 km and the model expects a collision probability below 1 in 1 million",
 }
@@ -66,7 +67,7 @@ def load():
         "relative_position_r", "relative_position_t", "relative_position_n", "relative_speed",
         "relative_velocity_r", "relative_velocity_t", "relative_velocity_n", "c_object_type",
     ])
-    return pd.concat([predictions, raw], axis=1), json.loads((OUT / "metrics.json").read_text())
+    return pd.concat([predictions, raw], axis=1), json.loads((OUT / "metrics.json").read_text(encoding="utf-8"))
 
 
 def build_events(d):
@@ -82,6 +83,7 @@ def build_events(d):
         ]].round(4).values.tolist()
         events.append({
             "id": int(event_id), "type": last.c_object_type, "msgs": msgs, "review": REVIEW_REASONS[last.review_reason],
+            "model": bool(last.trigger == MODEL_CRITICAL),
             "trigger": TRIGGERS[last.trigger], "drivers": plain_drivers(last.top_drivers), "row": int(last.source_line),
             "speed": float(last.relative_speed), "action": ACTIONS[last.predicted_tier],
             "velocity": [float(last.relative_velocity_r), float(last.relative_velocity_t), float(last.relative_velocity_n)],
@@ -94,44 +96,48 @@ def build_windows(d):
     windows = []
     for day in WINDOW_DAYS:
         w = d[(d.time_to_tca >= day) & (d.time_to_tca < day + 1)]
+        near, wide = w[w.miss_distance < 1000], w[w.miss_distance < 5000]
         windows.append({
             "label": f"{day}-{day + 1} days",
-            "within_1km": int(w[w.miss_distance < 1000].event_id.nunique()),
-            "within_5km": int(w[w.miss_distance < 5000].event_id.nunique()),
+            "within_1km": int(near.event_id.nunique()),
+            "within_5km": int(wide.event_id.nunique()),
+            "msgs_1km": len(near),
+            "msgs_5km": len(wide),
         })
     return windows
 
 
-def build_insights(d, latest, windows, metrics):
+def build_insights(d, latest, metrics):
     critical = latest[latest.predicted_tier == "Critical"]
-    by_model = int((critical.trigger == "model: Pc >= 1e-4 likely").sum())
+    by_model = int((critical.trigger == MODEL_CRITICAL).sum())
+    review = latest[latest.review_reason != ""]
+    no_covariance = int((review.review_reason == "no usable covariance").sum())
     ever = d[d.predicted_tier == "Critical"].event_id.unique()
     cleared = int((~latest[latest.event_id.isin(ever)].predicted_tier.eq("Critical")).sum())
-    peak = max(windows, key=lambda w: w["within_1km"])
     drift = metrics["tier_drift_2d_to_final_train"]
-    types = latest.groupby("c_object_type").predicted_tier.agg(
-        share=lambda s: (s == "Critical").mean(), events="size"
-    ).query("events >= 30").sort_values("share", ascending=False)
     return [
-        f"{len(critical)} of {len(latest):,} events are Critical on their latest message. "
-        f"{by_model} of those are flagged by the model alone, at a miss distance of 1 km or more, "
-        "which a distance-only screen would pass.",
-        f"The busiest window is {peak['label']} before closest approach, with {peak['within_1km']} events inside 1 km.",
-        f"{cleared} events were Critical on an earlier message but are not on their latest one, "
-        "so tiers move between updates.",
-        f"{types.index[0].capitalize()} has the highest Critical share at {types.share.iloc[0]:.1%} "
-        f"of {int(types.events.iloc[0]):,} events.",
+        f"{len(critical)} of {len(latest):,} events are Critical on their latest message. {by_model} of those are "
+        "Critical only because the model expects a collision probability of at least 1 in 10,000 at 1 km or more. "
+        "A distance-only screen would pass them, so check these first.",
+        f"{len(review)} events need review. {no_covariance} of them have no usable tracking uncertainty, so their "
+        "probabilities stay unreliable until a fresh tracking update arrives.",
+        f"{cleared} events were Critical on an earlier message but are not on their latest one. "
+        "Do not close an event on a single quieter update.",
         f"In the training data, {drift['ended_critical_not_critical_at_2d']} of {drift['ended_critical']} events "
-        "that ended Critical were not Critical at the 2-day mark. A Safe or Elevated tier here is "
-        "not a promise about the final message.",
+        "that ended Critical were not Critical at the 2-day mark. A Safe or Elevated tier here is not a promise "
+        "about the final message, so keep re-checking as new messages arrive.",
     ]
+
+
+def over_called(m):
+    """True Safe messages raised to Elevated or Critical."""
+    return sum(m["confusion_rows_true_cols_pred"][0][1:])
 
 
 def scorecard(test):
     def row(name, m):
-        over = m["confusion_rows_true_cols_pred"][0][1] + m["confusion_rows_true_cols_pred"][0][2]
         return {"name": name, "f1": f"{m['macro_f1']:.3f}", "missed": m["missed_critical"],
-                "false_critical": m["false_critical"], "over": f"{over:,}"}
+                "false_critical": m["false_critical"], "over": f"{over_called(m):,}"}
     return [
         row("This model", test["model"]),
         row("Worst-case estimate with distance rules", test["baseline_max_risk_estimate"]),
@@ -139,20 +145,40 @@ def scorecard(test):
     ]
 
 
-def limits(metrics):
-    test, md = metrics["test"], metrics["test"]["model_dependent"]
+def model_only(test):
+    """The Critical rows the 1 km rule cannot catch, where the model has to decide alone."""
+    md = test["model_dependent"]
+    critical, rows = sum(test["model"]["confusion_rows_true_cols_pred"][2]), md["pc_critical_rows_miss_ge_1km"]
+    return {
+        "critical": critical, "by_rule": critical - rows, "rows": rows,
+        "caught": round(md["critical_recall"] * rows), "false": f"{1 - md['critical_precision']:.0%}",
+        "auc": f"{md['critical_pr_auc']:.2f}", "auc_baseline": f"{md['critical_pr_auc_max_risk_estimate']:.2f}",
+    }
+
+
+def impact(test):
+    m, b = test["model"], test["baseline_max_risk_estimate"]
+    return (
+        f"Against the worst-case estimate with distance rules, the model raises "
+        f"{1 - m['false_critical'] / b['false_critical']:.0%} fewer false Critical alarms "
+        f"({m['false_critical']} vs {b['false_critical']}) and {1 - over_called(m) / over_called(b):.0%} fewer "
+        f"Safe messages as risky ({over_called(m):,} vs {over_called(b):,}). The cost is "
+        f"{m['missed_critical']} missed Critical messages, against {b['missed_critical']}."
+    )
+
+
+def limits(metrics, pc_error):
+    test = metrics["test"]
     return [
-        f"Most Critical rows are settled by the 1 km rule. Where the model must decide alone "
-        f"({md['pc_critical_rows_miss_ge_1km']} rows), it catches {md['critical_recall']:.1%} and "
-        f"{1 - md['critical_precision']:.0%} of its model-only Critical flags are false.",
-        "The worst-case estimate missed no Critical rows, because it nearly always overstates the risk. "
-        "The model accepts a few misses for far fewer false alarms, and every miss on test went to review.",
-        f"The collision probability shown is rough. It is typically off by a factor of about "
-        f"{round(10 ** test['log10_pc']['mae_operational_range'], -1):.0f} on the rows that matter, so rely on the tier and not the exact figure.",
+        "The worst-case estimate missed no Critical messages because it nearly always overstates the risk. "
+        f"The model accepts {test['model']['missed_critical']} misses in exchange for far fewer false alarms.",
+        "Every miss went to review, but only because of a review rule added after seeing these misses. "
+        "It changes no tiers, and its catch rate on test is not independent proof.",
+        f"The collision probability shown is rough. It is typically off by a factor of about {pc_error} "
+        "on the rows that matter, so rely on the tier and not the exact figure.",
         "Some messages have a placeholder instead of real tracking uncertainty. Their probabilities "
         "look unreliable, so they always go to review.",
-        "The review rule for a high worst-case estimate was added after seeing the test failures. "
-        "It changes no tiers, but its perfect catch rate on test is not independent proof.",
+        "The test data stops 2 days before closest approach, so behaviour in the final 2 days is untested.",
     ]
 
 
@@ -170,6 +196,7 @@ def main():
     latest = d.sort_values("time_to_tca").groupby("event_id", as_index=False).first()
     windows = build_windows(d)
     counts = latest.predicted_tier.value_counts()
+    pc_error = int(round(10 ** metrics["test"]["log10_pc"]["mae_operational_range"], -1))
     data = {
         "scope": f"Test data: {len(d):,} warning messages across {len(latest):,} close approaches, 2 to 7 days out. "
                  "It has no messages from the final 2 days.",
@@ -178,18 +205,27 @@ def main():
             *[{"tier": t, "value": int(counts.get(t, 0))} for t in reversed(TIERS)],
             {"label": "Need analyst review", "value": int((latest.review_reason != "").sum())},
         ],
+        "messages": len(d),
+        "attention": int(((latest.predicted_tier == "Critical") | (latest.review_reason != "")).sum()),
+        "critical_cut": f"{metrics['thresholds']['critical']:.0%}",
+        "critical_recall": f"{CRITICAL_RECALL:.0%}",
+        "pc_error": pc_error,
         "windows": windows,
-        "insights": build_insights(d, latest, windows, metrics),
+        "insights": build_insights(d, latest, metrics),
         "events": build_events(d),
+        "model_only": model_only(metrics["test"]),
         "scorecard": scorecard(metrics["test"]),
-        "limits": limits(metrics),
+        "impact": impact(metrics["test"]),
+        "limits": limits(metrics, pc_error),
         "failures": failures(),
     }
     payload = json.dumps(data, separators=(",", ":"), default=float).replace("</", "<\\/")
-    template = (ROOT / "dashboard_template.html").read_text()
-    three = (ROOT / "vendor" / "three.min.js").read_text()
-    (OUT / "dashboard.html").write_text(template.replace("/*THREE*/", three).replace("/*DATA*/", payload))
-    print(json.dumps({k: data[k] for k in ("scope", "tiles", "windows", "insights", "scorecard", "limits", "failures")}, indent=1))
+    template = (ROOT / "dashboard_template.html").read_text(encoding="utf-8")
+    three = (ROOT / "vendor" / "three.min.js").read_text(encoding="utf-8")
+    (OUT / "dashboard.html").write_text(template.replace("/*THREE*/", three).replace("/*DATA*/", payload), encoding="utf-8")
+    print(json.dumps({k: data[k] for k in (
+        "scope", "tiles", "attention", "windows", "insights", "model_only", "scorecard", "impact", "limits", "failures",
+    )}, indent=1))
 
 
 if __name__ == "__main__":

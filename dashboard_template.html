@@ -66,6 +66,8 @@ h1 { font-size: 34px; line-height: 1.1; letter-spacing: .01em; margin-top: 2px; 
 .count .label { display: flex; align-items: center; color: var(--console-muted); font-size: 14px; min-height: 22px; }
 .mix { display: flex; gap: 2px; height: 10px; }
 .mix span { min-width: 3px; border-radius: 2px; }
+.rules { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 24px; font-size: 13px; color: var(--console-muted); }
+.rules .tier { color: var(--console-ink); }
 
 .page { display: grid; gap: 16px; padding-block: 16px 56px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px; min-width: 0; }
@@ -96,7 +98,7 @@ td.num, .mono { font-family: var(--font-data); font-size: 13px; font-variant-num
 .object { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .tier { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-weight: 500; }
 .tier svg { width: 12px; height: 12px; flex: none; }
-.chip { display: inline-block; font-size: 11px; font-weight: 500; line-height: 1.5; color: var(--ink-2); border: 1px solid var(--axis); border-radius: 4px; padding: 0 5px; margin-top: 2px; }
+.chip { display: inline-block; font-size: 11px; font-weight: 500; line-height: 1.5; color: var(--ink-2); border: 1px solid var(--axis); border-radius: 4px; padding: 0 5px; margin: 2px 4px 0 0; white-space: nowrap; }
 
 .detail { display: grid; gap: 16px; }
 .detail-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px 16px; }
@@ -118,7 +120,7 @@ td.num, .mono { font-family: var(--font-data); font-size: 13px; font-variant-num
 .prob-labels { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 13px; color: var(--ink-2); }
 .prob-labels b { font: 500 13px var(--font-data); color: var(--ink); }
 .charts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
-.chart { min-width: 0; display: grid; gap: 2px; align-content: start; }
+.chart { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; align-content: start; }
 .chart-wide { grid-column: 1 / -1; }
 .plot { position: relative; margin-top: 6px; }
 .plot svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
@@ -135,6 +137,10 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
 .scroll table { min-width: 460px; }
 .failure td:last-child { min-width: 190px; }
 
+.seg { display: inline-flex; margin-top: 12px; border: 1px solid var(--axis); border-radius: 6px; overflow: hidden; }
+.seg button { font: 500 13px var(--font-body); color: var(--ink-2); background: var(--panel-2); border: 0; padding: 5px 12px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--axis); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--panel); }
 .windows { display: grid; gap: 8px; margin-top: 12px; }
 .window { display: grid; grid-template-columns: 74px minmax(0, 1fr) 48px 48px; gap: 10px; align-items: center; font-size: 14px; }
 .window.head { color: var(--muted); font-size: 12px; }
@@ -149,6 +155,11 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
 ul { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
 .list li { padding-left: 14px; border-left: 2px solid var(--axis); max-width: 80ch; }
 .board tbody tr:first-child td { font-weight: 600; background: var(--wash); }
+.sub { margin-top: 18px; }
+.lead { margin-top: 6px; color: var(--ink-2); font-size: 14px; max-width: 80ch; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.stat .value { font: 500 26px/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
+.stat .label { color: var(--muted); font-size: 13px; }
 .glossary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 24px; margin: 12px 0 0; }
 .glossary dt { font-weight: 600; }
 .glossary dd { margin: 0; color: var(--ink-2); font-size: 14px; }
@@ -166,7 +177,7 @@ ul { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
   .count:first-child { grid-column: 1 / -1; }
   .count .value { font-size: 32px; }
   .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .charts, .glossary { grid-template-columns: minmax(0, 1fr); }
+  .charts, .glossary, .stats { grid-template-columns: minmax(0, 1fr); }
   .card { padding: 14px; }
   .queue { margin-inline: -14px; margin-bottom: -14px; }
 }
@@ -179,12 +190,13 @@ ul { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
       <div>
         <p class="eyebrow">Satellite collision avoidance</p>
         <h1>Conjunction Risk Desk</h1>
-        <p class="lede">Ranks every predicted close approach between a satellite and another object, and explains why. The analyst makes the maneuver decision.</p>
+        <p class="lede">Built for the on-duty conjunction analyst, who would otherwise check every warning message by hand. It ranks each predicted close approach and explains why. <span id="load"></span> The analyst makes the maneuver decision.</p>
       </div>
       <button class="theme" id="theme" type="button">Dark</button>
     </div>
     <section class="counts" id="tiles" aria-label="Events by tier"></section>
     <div class="mix" id="mix" role="img" aria-label="Share of events in each tier"></div>
+    <div class="rules" id="rules" aria-label="How tiers are set"></div>
     <p class="note" id="scope" style="color:var(--console-muted)"></p>
   </div>
 </header>
@@ -195,7 +207,7 @@ ul { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
       <h2>Event queue</h2>
       <p class="note">Each close approach, using its latest warning message. Critical first, then items needing review, then highest chance.</p>
       <div class="filters">
-        <select id="f-tier" aria-label="Filter by tier"><option value="">All tiers</option><option>Critical</option><option>Elevated</option><option>Safe</option></select>
+        <select id="f-tier" aria-label="Filter by tier"><option value="">All tiers</option><option>Critical</option><option value="model">Critical found by model</option><option>Elevated</option><option>Safe</option></select>
         <select id="f-review" aria-label="Filter by review flag"><option value="">Any review state</option><option value="1">Needs review only</option></select>
         <select id="f-type" aria-label="Filter by object type"><option value="">All objects</option></select>
         <input id="f-id" placeholder="Event ID" aria-label="Find event ID" inputmode="numeric">
@@ -212,7 +224,8 @@ ul { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
   <section class="pair">
     <div class="card">
       <h2>Dangerous approaches per 24-hour window</h2>
-      <p class="note">Distinct events with a message in each window. The data has no shared clock, so windows count back from each event's own closest approach.</p>
+      <p class="note">Events count each close approach once per window. Warning messages count every update, so one event can add several. The data has no shared clock, so windows count back from each event's own closest approach, and it has no messages from the final 2 days.</p>
+      <div class="seg" role="group" aria-label="What to count"><button type="button" data-unit="events" aria-pressed="true">Events</button><button type="button" data-unit="msgs" aria-pressed="false">Warning messages</button></div>
       <div class="windows" id="windows"></div>
       <div class="key"><span><i style="background:var(--accent)"></i>Inside 1 km</span><span><i style="background:var(--accent-soft)"></i>Inside 5 km</span></div>
     </div>
@@ -226,12 +239,17 @@ ul { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
     <div class="card">
       <h2>How far to trust this</h2>
       <p class="note">Results on test data the model never saw. All settings were chosen on the training data.</p>
+      <h3 class="sub">Where the model matters</h3>
+      <p class="lead" id="model-only"></p>
+      <div class="stats" id="model-stats"></div>
+      <h3 class="sub">Against simpler methods</h3>
       <div class="scroll board" id="scorecard"></div>
+      <p class="lead" id="impact"></p>
       <ul class="list" id="limits"></ul>
     </div>
     <div class="card">
       <h2>Where it was wrong</h2>
-      <p class="note">Every Critical message the model missed on test data. Select one to open it.</p>
+      <p class="note">Every Critical message the model missed on test data. Select one to open it. The review rule that flagged them was added after these misses were seen.</p>
       <div class="scroll" id="failures"></div>
     </div>
   </section>
@@ -248,6 +266,7 @@ ul { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
       <div><dt>Chance Critical</dt><dd>The model's calibrated probability that this message belongs in the Critical tier.</dd></div>
       <div><dt>Needs review</dt><dd>The system is unsure or the data is poor, so a person should check it whatever the tier says.</dd></div>
       <div><dt>Overall score</dt><dd>Macro F1, from 0 to 1. It averages accuracy across all three tiers, so rare Critical rows count as much as Safe ones.</dd></div>
+      <div><dt>Ranking score</dt><dd>PR-AUC, from 0 to 1. How well a method ranks real Critical messages above the rest when they are rare. Higher is better.</dd></div>
     </dl>
   </section>
 </main>
@@ -267,6 +286,11 @@ const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 const km = m => (m / 1000).toFixed(m < 10000 ? 2 : 1);
 const pct = p => p >= 0.9995 ? '100%' : p < 0.001 ? '<0.1%' : (p * 100).toFixed(p < 0.1 ? 1 : 0) + '%';
+const RULES = [
+  ['Critical', ': collision chance 1 in 10,000 or higher, or within 1 km'],
+  ['Elevated', ': 1 in 1 million up to 1 in 10,000, or 1 to 5 km'],
+  ['Safe', ': below 1 in 1 million and beyond 5 km'],
+];
 const TYPE_NAMES = { DEBRIS: 'Debris', PAYLOAD: 'Satellite', 'ROCKET BODY': 'Rocket body', UNKNOWN: 'Unknown object', TBA: 'Not yet identified' };
 const typeName = t => TYPE_NAMES[t] || t;
 // The data stores collision probability as log10, so -4 means 1 in 10,000.
@@ -316,26 +340,35 @@ function renderSummary() {
     s.title = `${t}: ${n.toLocaleString()} events`;
     return s;
   }));
-  const max = Math.max(...D.windows.map(w => w.within_5km), 1);
-  const head = el('div', 'window head');
-  head.append(el('span', '', 'Days out'), el('span'), el('span', 'num', '< 1 km'), el('span', 'num', '< 5 km'));
-  $('windows').replaceChildren(head, ...D.windows.map(w => {
-    const r = el('div', 'window'), track = el('div', 'track'), wide = el('span', 'wide'), near = el('span', 'near');
-    wide.style.width = (w.within_5km / max * 100) + '%';
-    near.style.width = (w.within_1km / max * 100) + '%';
-    track.append(wide, near);
-    r.append(el('span', '', w.label), track, el('span', 'num', w.within_1km), el('span', 'num', w.within_5km));
-    return r;
-  }));
+  $('rules').replaceChildren(...RULES.map(([t, text]) => { const s = el('span'); s.append(tierBadge(t), text); return s; }),
+    el('span', '', 'Thresholds from the brief, following NASA/SP-20205011318 and ESA Space Debris Office standards.'));
+  $('load').textContent = `${D.attention} of ${D.events.length.toLocaleString()} events are Critical or need review, so the analyst starts there instead of reading all ${D.messages.toLocaleString()} warning messages.`;
+  renderWindows('events');
   $('insights').replaceChildren(...D.insights.map(t => el('li', '', t)));
   const types = [...new Set(D.events.map(e => e.type))].sort();
   $('f-type').append(...types.map(t => { const o = el('option', '', typeName(t)); o.value = t; return o; }));
 }
 
+function renderWindows(unit) {
+  const [near, wide] = unit === 'msgs' ? ['msgs_1km', 'msgs_5km'] : ['within_1km', 'within_5km'];
+  const max = Math.max(...D.windows.map(w => w[wide]), 1);
+  const head = el('div', 'window head');
+  head.append(el('span', '', 'Days out'), el('span'), el('span', 'num', '< 1 km'), el('span', 'num', '< 5 km'));
+  $('windows').replaceChildren(head, ...D.windows.map(w => {
+    const r = el('div', 'window'), track = el('div', 'track'), wideBar = el('span', 'wide'), nearBar = el('span', 'near');
+    wideBar.style.width = (w[wide] / max * 100) + '%';
+    nearBar.style.width = (w[near] / max * 100) + '%';
+    track.append(wideBar, nearBar);
+    r.append(el('span', '', w.label), track, el('span', 'num', w[near].toLocaleString()), el('span', 'num', w[wide].toLocaleString()));
+    return r;
+  }));
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.unit === unit));
+}
+
 let selected = null;
 function renderQueue() {
   const tier = $('f-tier').value, review = $('f-review').value, type = $('f-type').value, id = $('f-id').value.trim();
-  const visible = D.events.filter(e => (!tier || tierOf(e) === tier) && (!review || e.review) && (!type || e.type === type) && (!id || String(e.id) === id));
+  const visible = D.events.filter(e => (!tier || (tier === 'model' ? e.model : tierOf(e) === tier)) &&(!review || e.review) && (!type || e.type === type) && (!id || String(e.id) === id));
   $('count').textContent = `${visible.length.toLocaleString()} of ${D.events.length.toLocaleString()} events` + (visible.length > 300 ? ', showing the first 300' : '');
   $('rows').replaceChildren(...visible.slice(0, 300).map(e => {
     const m = latest(e), tr = el('tr');
@@ -347,7 +380,8 @@ function renderQueue() {
     idCell.append(el('span', 'event-id', e.id), el('span', 'object', typeName(e.type)));
     const tierCell = el('td');
     tierCell.append(tierBadge(tierOf(e)));
-    if (e.review) { tierCell.append(el('br'), el('span', 'chip', 'Review')); }
+    const chips = [e.model && 'Found by model', e.review && 'Review'].filter(Boolean);
+    if (chips.length) tierCell.append(el('br'), ...chips.map(c => el('span', 'chip', c)));
     const num = v => el('td', 'num', v);
     tr.append(idCell, tierCell, num(km(m[M.miss])), num(pct(m[M.pcrit])), num(m[M.time].toFixed(1)));
     tr.onclick = () => select(e);
@@ -374,6 +408,7 @@ function renderDetail(e) {
   const act = el('div', `action ${tier}`);
   act.append(el('strong', '', e.action), el('p', 'why', `Why: ${e.trigger}`));
   if (m[M.miss] < 1000 && m[M.pc] < -4) act.append(el('p', 'why', 'The 1 km distance rule sets this tier, even though the estimated collision probability is low.'));
+  if (e.model) act.append(el('p', 'why', `The model raises Critical from a ${D.critical_cut} chance. That line was set to catch ${D.critical_recall} of Critical cases in training, at the cost of some false alarms.`));
   if (e.review) act.append(el('p', 'why', `Needs review: ${e.review}`));
   box.append(act);
 
@@ -392,6 +427,7 @@ function renderDetail(e) {
    ['Collision probability', oneIn(m[M.pc])], ['Likely high', oneIn(m[M.hi])], ['Likely low', oneIn(m[M.lo])]]
     .forEach(([k, v]) => { const d = el('div', 'fact'); d.append(el('div', 'k', k), el('div', 'v', v)); facts.append(d); });
   box.append(facts);
+  box.append(el('p', 'note', `The collision probability is rough, typically off by a factor of about ${D.pc_error} either way. Rely on the tier and its probabilities.`));
 
   const charts = el('div', 'charts');
   const geo = chartBox('Encounter in 3D', 'Drag to rotate. Your satellite is at the centre and the blue line is the other object\'s path near closest approach. Grey dots are earlier predictions of the closest point. Models are illustrations: real objects are metres across, and the fly-by speed is not to scale.', 'chart-wide');
@@ -691,6 +727,15 @@ function geometry(host, e) {
 }
 
 function renderEvaluation() {
+  const mo = D.model_only;
+  $('model-only').textContent = `${mo.by_rule.toLocaleString()} of the ${mo.critical.toLocaleString()} Critical test messages are inside 1 km, so the distance rule catches them without a model. The other ${mo.rows} pass 1 km or more away with a collision probability of at least 1 in 10,000. Only the model can find those.`;
+  $('model-stats').replaceChildren(...[
+    [`${mo.caught} of ${mo.rows}`, 'found by the model'],
+    [`${mo.auc} vs ${mo.auc_baseline}`, 'ranking score, model vs worst-case estimate'],
+    [mo.false, 'of its Critical flags here are false alarms'],
+  ].map(([v, label]) => { const s = el('div', 'stat'); s.append(el('div', 'value', v), el('div', 'label', label)); return s; }));
+  $('impact').textContent = D.impact;
+
   const table = el('table');
   table.innerHTML = '<thead><tr><th>Method</th><th class="num">Overall score</th><th class="num">Critical missed</th><th class="num">False Critical alarms</th><th class="num">Safe raised as risky</th></tr></thead>';
   const body = el('tbody');
@@ -722,8 +767,13 @@ setupTheme();
 renderSummary();
 renderEvaluation();
 ['f-tier', 'f-review', 'f-type', 'f-id'].forEach(id => $(id).addEventListener('input', renderQueue));
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => renderWindows(b.dataset.unit)));
 renderQueue();
-select(D.events[0]);
+// Open on the most confident Critical the model found beyond 1 km, since the 1 km rule needs no model.
+const opening = D.events.find(e => e.model && !e.review) || D.events[0];
+select(opening);
+const openingRow = document.querySelector(`.queue tbody tr[data-id="${opening.id}"]`);
+if (openingRow) openingRow.closest('.queue').scrollTop = openingRow.offsetTop - openingRow.offsetHeight;
 </script>
 </body>
 </html>
