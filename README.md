@@ -1,2 +1,103 @@
-# Claude_Hackathon
-Anthropic sponsored hackathon
+# Conjunction Risk Desk (Airbus Challenge #1)
+
+Triage for the on-duty conjunction analyst. It reads conjunction messages, classifies each as
+Safe, Elevated or Critical with probabilities, and queues events for review. The maneuver
+decision stays with the analyst.
+
+## Run
+
+Put `train_data.csv` and `test_data.csv` in this folder, then:
+
+```
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python pipeline.py          # trains, saves models/, writes outputs/ (about 5 min)
+.venv/bin/python build_dashboard.py   # writes outputs/dashboard.html
+open outputs/dashboard.html
+```
+
+To score a new file with the saved models, without retraining:
+
+```
+.venv/bin/python predict.py input.csv output.csv
+```
+
+No API keys are needed. Nothing calls an LLM.
+
+## Method
+
+| Step | Done by | Why |
+|---|---|---|
+| Miss-distance tiers (`< 1 km`, `1-5 km`) | Fixed rules | They are definitions in the brief, so a model must not override them |
+| `P(Pc >= 1e-4)`, `P(Pc >= 1e-6)` | CatBoost classifiers, isotonic calibration | The part that needs estimating |
+| log10 Pc with 80% interval | CatBoost quantile regression | Shows uncertainty |
+| Review flag | Rules | Sends uncertain rows to a person |
+
+Tiers follow the brief, with Critical winning over Elevated and Elevated over Safe. Decision
+thresholds are set on out-of-fold train predictions to catch 90% of positives, so a false
+alarm is accepted over a miss.
+
+Rows are flagged for review when the covariance is an Earth-radius placeholder, when
+`max_risk_estimate` is at or above the Critical line but the model disagrees, or when the
+probability is near a threshold.
+
+Only the brief's columns reach a model. `relative_velocity_*` is read by the dashboard to draw
+the approach line. `risk` is the target and is never an input.
+
+## Results
+
+Scored on `test_data.csv`: 24,484 messages, 2,167 events, 2 to 7 days before TCA.
+
+| Method | Macro F1 | Missed Critical | False Critical | Safe over-called |
+|---|---|---|---|---|
+| This model | 0.968 (95% CI 0.963-0.973) | 5 | 47 | 687 |
+| `max_risk_estimate` + rules | 0.841 | 0 | 173 | 4,534 |
+| Miss distance only | 0.952 | 91 | 0 | 0 |
+
+The rows the rule cannot settle are the real test. With miss distance of 1 km or more, there
+are 91 Pc-Critical rows:
+
+| Measure | Result |
+|---|---|
+| Recall | 94.5% |
+| Precision | 64.7% |
+| PR-AUC, model | 0.781 |
+| PR-AUC, `max_risk_estimate` | 0.591 |
+
+Grouped 5-fold cross-validation on train gave matching results: macro F1 0.966, recall 94.1%
+on the same kind of rows.
+
+## Known limits
+
+- The model missed 5 Critical rows that `max_risk_estimate` caught. All 5 are within 0.09 of the
+  line, and event 1930 got a probability near 0%. The baseline's clean record comes from being
+  an upper bound, and it raises 3.7 times the false Critical flags.
+- Precision is 64.7% on model-only Critical flags, so about 1 in 3 is a false alarm.
+- Point Pc is rough, with an error of 1.6 orders of magnitude on rows with log10 Pc of -8 or
+  above. Use tiers and probabilities instead.
+- A tier describes the current message and is not a forecast. On train, 99 of 551 events that
+  ended Critical were not Critical at the 2-day mark.
+- The test file stops 2 days before TCA, so behaviour inside that window is not tested here.
+- Test has more high-risk rows than train (9.1% vs 7.2% Critical). Scores held up, but other
+  mixes may differ.
+- The data has no shared clock, so 24-hour windows are days before each event's own TCA.
+- Trajectories are straight-line relative motion, which only holds near TCA.
+- The `TBA` object type has 29 rows, too few to judge.
+
+## Evaluation notes
+
+- Cross-validation splits by event, so no event is on both sides.
+- Event IDs restart between files and are unrelated. No test row matches a train row.
+- Test `risk` is removed before predicting and restored only after predictions are saved.
+- Tier thresholds were never tuned on test.
+- The `max_risk_estimate` review flag was added after seeing the test failures. It flags all 5
+  misses on test and all 18 on out-of-fold train, where it was checked. It changes no tier, but
+  its test catch rate is not a clean holdout.
+
+## Files
+
+- `pipeline.py`: features, training, calibration, evaluation
+- `predict.py`: scoring with saved models
+- `build_dashboard.py`, `dashboard_template.html`: dashboard
+- `models/`: trained CatBoost models, calibrators and thresholds
+- `outputs/`: predictions, metrics, failure cases, dashboard
