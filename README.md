@@ -34,8 +34,8 @@ No API keys are needed. Nothing calls an LLM.
 | Review flag | Rules | Sends uncertain rows to a person |
 
 Tiers follow the brief, with Critical winning over Elevated and Elevated over Safe. Decision
-thresholds are set on out-of-fold train predictions to catch 90% of positives, so a false
-alarm is accepted over a miss.
+thresholds are set on out-of-fold train predictions to catch 95% of Critical and 90% of Elevated
+positives, so a false alarm is accepted over a miss.
 
 Rows are flagged for review when the covariance is an Earth-radius placeholder, when
 `max_risk_estimate` is at or above the Critical line but the model disagrees, or when the
@@ -50,7 +50,7 @@ Scored on `test_data.csv`: 24,484 messages, 2,167 events, 2 to 7 days before TCA
 
 | Method | Macro F1 | Missed Critical | False Critical | Safe over-called |
 |---|---|---|---|---|
-| This model | 0.968 (95% CI 0.963-0.973) | 5 | 47 | 687 |
+| This model | 0.967 (95% CI 0.962-0.972) | 5 | 58 | 687 |
 | `max_risk_estimate` + rules | 0.841 | 0 | 173 | 4,534 |
 | Miss distance only | 0.952 | 91 | 0 | 0 |
 
@@ -60,19 +60,31 @@ are 91 Pc-Critical rows:
 | Measure | Result |
 |---|---|
 | Recall | 94.5% |
-| Precision | 64.7% |
+| Precision | 59.7% |
 | PR-AUC, model | 0.781 |
 | PR-AUC, `max_risk_estimate` | 0.591 |
 
-Grouped 5-fold cross-validation on train gave matching results: macro F1 0.966, recall 94.1%
-on the same kind of rows.
+Grouped 5-fold cross-validation on train gave macro F1 0.966 and recall 98.0% on the same kind
+of rows. The recall gap to test is 6 of 304 misses against 5 of 91, a small sample on test.
+
+## Tuning
+
+`tune.py` steps training settings by 0.05, selecting on train out-of-fold results only.
+
+- Learning rate, `rsm` and `subsample`: no step beat the starting settings by more than
+  2 standard errors, so they are unchanged.
+- Recall targets: raising the Critical target from 0.90 to 0.95 cut misses on train from 18 to 6
+  for 29 more false Critical rows. The highest macro F1 came from an Elevated target of 0.75,
+  which was rejected because it raises risky rows called Safe from 380 to 946.
+- On test, the same change left misses at 5 and added 11 false Critical rows. It was kept,
+  because reverting it on that result would mean selecting on the test set.
 
 ## Known limits
 
 - The model missed 5 Critical rows that `max_risk_estimate` caught. All 5 are within 0.09 of the
   line, and event 1930 got a probability near 0%. The baseline's clean record comes from being
-  an upper bound, and it raises 3.7 times the false Critical flags.
-- Precision is 64.7% on model-only Critical flags, so about 1 in 3 is a false alarm.
+  an upper bound, and it raises 3 times the false Critical flags.
+- Precision is 59.7% on model-only Critical flags, so about 2 in 5 are false alarms.
 - Point Pc is rough, with an error of 1.6 orders of magnitude on rows with log10 Pc of -8 or
   above. Use tiers and probabilities instead.
 - A tier describes the current message and is not a forecast. On train, 99 of 551 events that
@@ -91,13 +103,14 @@ on the same kind of rows.
 - Test `risk` is removed before predicting and restored only after predictions are saved.
 - Tier thresholds were never tuned on test.
 - The `max_risk_estimate` review flag was added after seeing the test failures. It flags all 5
-  misses on test and all 18 on out-of-fold train, where it was checked. It changes no tier, but
+  misses on test and all 6 on out-of-fold train, where it was checked. It changes no tier, but
   its test catch rate is not a clean holdout.
 
 ## Files
 
 - `pipeline.py`: features, training, calibration, evaluation
 - `predict.py`: scoring with saved models
+- `tune.py`: 0.05-step settings search, train only
 - `build_dashboard.py`, `dashboard_template.html`: dashboard
 - `models/`: trained CatBoost models, calibrators and thresholds
 - `outputs/`: predictions, metrics, failure cases, dashboard

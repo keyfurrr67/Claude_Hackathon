@@ -22,6 +22,7 @@ OUT = ROOT / "outputs"
 MODELS = ROOT / "models"
 SEED = 42
 N_FOLDS = 5
+PARAMS = {"learning_rate": 0.06}  # overrides chosen by tune.py
 
 BRIEF_COLUMNS = [
     "event_id", "time_to_tca", "miss_distance", "relative_speed", "relative_position_r",
@@ -35,7 +36,8 @@ ELEVATED_LOG_PC = -6.0
 CRITICAL_MISS_M = 1000.0
 SAFE_MISS_M = 5000.0
 SIGMA_PLACEHOLDER_M = 6.3e7  # Earth radius in metres, used in the data when no covariance exists
-TARGET_RECALL = 0.90
+CRITICAL_RECALL = 0.95  # chosen by tune.py
+ELEVATED_RECALL = 0.90
 REVIEW_BAND = 0.5  # flag rows whose probability is within this factor of a decision threshold
 TIERS = ["Safe", "Elevated", "Critical"]
 
@@ -109,8 +111,8 @@ def pool(X, y=None):
 def fit_model(X, y, loss):
     cls = CatBoostRegressor if loss.startswith("Quantile") else CatBoostClassifier
     return cls(
-        loss_function=loss, iterations=350, learning_rate=0.06, depth=6,
-        random_seed=SEED, verbose=False, allow_writing_files=False,
+        loss_function=loss, iterations=350, depth=6,
+        random_seed=SEED, verbose=False, allow_writing_files=False, **PARAMS,
     ).fit(pool(X, y))
 
 
@@ -155,7 +157,7 @@ def threshold_for_recall(p, y, recall):
     return float(np.sort(p[y == 1])[int(np.floor((1 - recall) * (y == 1).sum()))])
 
 
-def calibrate(oof, train):
+def calibrate(oof, train, critical_recall=CRITICAL_RECALL, elevated_recall=ELEVATED_RECALL):
     """Isotonic calibration and decision thresholds, fitted on out-of-fold rows only."""
     in_scope = (train.time_to_tca >= 2).to_numpy()  # test only holds messages 2+ days out
     y4 = (train[TARGET] >= CRITICAL_LOG_PC).to_numpy().astype(int)
@@ -167,8 +169,8 @@ def calibrate(oof, train):
     mask4 = in_scope & (miss >= CRITICAL_MISS_M)
     mask6 = in_scope & (miss > SAFE_MISS_M)
     thresholds = {
-        "critical": threshold_for_recall(p4[mask4], y4[mask4], TARGET_RECALL),
-        "elevated": threshold_for_recall(p6[mask6], y6[mask6], TARGET_RECALL),
+        "critical": threshold_for_recall(p4[mask4], y4[mask4], critical_recall),
+        "elevated": threshold_for_recall(p6[mask6], y6[mask6], elevated_recall),
     }
     return iso4, iso6, thresholds
 
